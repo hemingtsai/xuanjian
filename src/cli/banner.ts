@@ -108,7 +108,7 @@ export function logoColumns(): { leading: string[]; main: string[] } {
   const leading: string[] = []
   const main: string[] = []
   for (const row of WORDMARK) {
-    leading.push(row.slice(0, SPLIT_COL).trimEnd())
+    leading.push(row.slice(0, SPLIT_COL))
     main.push(row.slice(SPLIT_COL).trimEnd())
   }
   return { leading, main }
