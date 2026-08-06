@@ -98,3 +98,22 @@ export function goLogo(): string {
   }
   return rows.join("\n")
 }
+
+// —— TUI 专用：无 ANSI 的 banner 结构，由 opentui 组件分栏渲染 ——
+
+/** XUANJIAN 书法字标的左右分栏（左侧为装饰笔画，右侧为主字形） */
+const SPLIT_COL = 22
+
+export function logoColumns(): { leading: string[]; main: string[] } {
+  const leading: string[] = []
+  const main: string[] = []
+  for (const row of WORDMARK) {
+    leading.push(row.slice(0, SPLIT_COL).trimEnd())
+    main.push(row.slice(SPLIT_COL).trimEnd())
+  }
+  return { leading, main }
+}
+
+export function bannerTitle(): string {
+  return "玄鉴 Xuanjian — 深察明镜，审鉴万物"
+}

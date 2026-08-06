@@ -106,6 +106,20 @@ export function App(props: { controller: TuiController }): JSX.Element {
 export function PartView(props: { part: OutputPart }): JSX.Element {
   const part = props.part
   switch (part.type) {
+    case "banner":
+      return (
+        <box paddingBottom={1} flexDirection="column">
+          <For each={part.leading}>
+            {(_, i) => (
+              <box flexDirection="row">
+                <text fg="#64748b">{part.leading[i()]}</text>
+                <text fg="#e2e8f0">{part.main[i()]}</text>
+              </box>
+            )}
+          </For>
+          <text fg="#94a3b8">{part.title}</text>
+        </box>
+      )
     case "user":
       return (
         <box paddingY={0}>

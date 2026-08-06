@@ -4,6 +4,7 @@ import type { LoopSink } from "../core/agent-loop"
 import type { ExecuteResult } from "../tools/registry"
 
 export type OutputPart =
+  | { type: "banner"; leading: string[]; main: string[]; title: string }
   | { type: "user"; text: string }
   | { type: "assistant"; text: string }
   | { type: "text"; text: string }

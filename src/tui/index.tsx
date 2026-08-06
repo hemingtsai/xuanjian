@@ -1,7 +1,7 @@
 import path from "node:path"
 import { render } from "@opentui/solid"
 import { createCliRenderer } from "@opentui/core"
-import { banner } from "../cli/banner"
+import { logoColumns, bannerTitle } from "../cli/banner"
 import type { Options } from "../cli/args"
 import { createRuntime } from "../core/runtime"
 import { resolveAgent } from "../core/agent"
@@ -28,7 +28,8 @@ export async function runTui(options: Options): Promise<void> {
   }
 
   const controller = new TuiController(runtime, session)
-  controller.out.push({ type: "system", text: banner() })
+  const cols = logoColumns()
+  controller.out.push({ type: "banner", leading: cols.leading, main: cols.main, title: bannerTitle() })
   registerTuiSlash(controller)
 
   const renderer = await createCliRenderer({ exitOnCtrlC: false })
