@@ -50,6 +50,7 @@ function printHelp(): void {
       "  run <任务>             非交互模式执行任务",
       "  config init|path|get|set  配置管理",
       "  providers [id]         列出 provider / 模型",
+      "  auth login|list|logout 连接 provider 引导",
       "  review [todo]          审查当前 git diff",
       "  goals list|status|resume|abort   goal 模式管理",
       "  plugins list           列出插件",

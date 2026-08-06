@@ -28,8 +28,9 @@
 
 ```bash
 bun install
-bun run dev                    # 进入全屏 TUI（模型/agent/模式/工作区/LSP/DAP/上下文状态栏）
+bun run dev                    # 进入全屏 TUI（未连接 provider 时显示 onboarding 引导）
 bun run -- src/index.ts run "把 README 翻译成英文"
+bun run -- src/index.ts auth login          # 连接 provider 交互向导
 bun run -- src/index.ts config init
 bun run -- src/index.ts review "完成了登录鉴权模块"
 bun run -- src/index.ts run --goal "构建一个可部署的博客系统"
