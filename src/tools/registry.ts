@@ -5,6 +5,7 @@ export interface ToolContext {
   sessionID?: string
   abort?: AbortSignal
   extra?: Record<string, unknown>
+  ask?: (question: string) => Promise<string | undefined>
 }
 
 export interface ExecuteResult {

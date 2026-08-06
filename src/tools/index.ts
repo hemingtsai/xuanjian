@@ -7,6 +7,9 @@ import { GlobTool } from "./glob"
 import { GrepTool } from "./grep"
 import { BashTool } from "./bash"
 import { TodoWriteTool } from "./todo"
+import { WebFetchTool } from "./webfetch"
+import { QuestionTool } from "./question"
+import { TaskTool } from "./task"
 
 export function createDefaultRegistry(): ToolRegistry {
   const registry = new ToolRegistry()
@@ -18,6 +21,9 @@ export function createDefaultRegistry(): ToolRegistry {
   registry.register(GrepTool)
   registry.register(BashTool)
   registry.register(TodoWriteTool)
+  registry.register(WebFetchTool)
+  registry.register(QuestionTool)
+  registry.register(TaskTool)
   return registry
 }
 

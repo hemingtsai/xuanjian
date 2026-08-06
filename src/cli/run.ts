@@ -44,6 +44,7 @@ export async function runTask(message: string, options: Options, goal: string | 
       permission: runtime.permission,
       agent,
       model,
+      sessionManager: runtime.sessions,
       sink: renderer,
       askPermission: nonInteractive
         ? async (req: PermissionRequest) => {

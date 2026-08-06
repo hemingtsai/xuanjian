@@ -5,8 +5,11 @@ import type { Session } from "./session"
 import * as Events from "./events"
 import type { PermissionEngine } from "./permission"
 import type { PermissionRequest } from "./permission"
+import { PermissionEngine as PermissionEngineImpl } from "./permission"
 import type { ToolRegistry } from "../tools/registry"
+import { ToolRegistry as ToolRegistryImpl } from "../tools/registry"
 import type { ExecuteResult } from "../tools/registry"
+import type { SessionManager } from "./session"
 import { complete } from "../llm/client"
 import type { LLMEvent, ToolDef, LLMMessage } from "../llm/llm"
 import { newUUID } from "./session"
@@ -29,8 +32,10 @@ export interface LoopOptions {
   permission: PermissionEngine
   agent?: AgentInfo
   model?: string
+  sessionManager?: SessionManager
   sink?: Partial<LoopSink>
   askPermission?: (req: PermissionRequest) => Promise<PermissionAnswer | undefined>
+  askUser?: (question: string) => Promise<string | undefined>
   abort?: AbortSignal
 }
 
@@ -63,6 +68,35 @@ export async function runAgentTurn(input: string, opts: LoopOptions): Promise<Tu
 
   const tools = selectTools(registry, agent)
   const toolMap = new Map(registry.list().map((t) => [t.id, t]))
+
+  const subagent = opts.sessionManager
+    ? async (subInput: { description: string; agent?: string; model?: string }) => {
+        const subAgent = subInput.agent ? resolveAgent(subInput.agent, opts.config) : undefined
+        const subModel = subInput.model ?? subAgent?.model ?? model
+        const subSession = opts.sessionManager!.create({ cwd: session.cwd, model: subModel, agent: subInput.agent })
+        const subRegistry = restrictedSubregistry(registry)
+        const result = await runAgentTurn(subInput.description, {
+          session: subSession,
+          config: opts.config,
+          registry: subRegistry,
+          permission: new PermissionEngineImpl(opts.config.permission, { defaultOverride: "deny" }),
+          agent: subAgent,
+          model: subModel,
+          sessionManager: undefined,
+          sink: { done: () => {} },
+          abort,
+        })
+        return result
+      }
+    : undefined
+
+  const toolContext = {
+    cwd: session.cwd,
+    sessionID: session.id,
+    abort,
+    ask: opts.askUser,
+    extra: { subagent } as Record<string, unknown>,
+  }
 
   let iterations = 0
   let finalText = ""
@@ -144,7 +178,7 @@ export async function runAgentTurn(input: string, opts: LoopOptions): Promise<Tu
       await Events.emit("tool.before_call", { tool: call.name, args: call.args, session_id: session.id })
       let result: ExecuteResult
       try {
-        result = await tool!.call({ cwd: session.cwd, sessionID: session.id, abort }, call.args)
+        result = await tool!.call(toolContext, call.args)
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
         result = { title: call.name, output: `工具错误: ${message}` }
@@ -166,4 +200,14 @@ function toolSubject(call: { name: string; args: Record<string, unknown> }): str
     if (typeof cmd === "string") return cmd.trim()
   }
   return ""
+}
+
+const SUBAGENT_TOOLS = new Set(["read", "glob", "grep", "webfetch", "lsp_definition", "lsp_symbols", "lsp_references", "lsp_hover", "lsp_diagnostics"])
+
+function restrictedSubregistry(registry: ToolRegistry): ToolRegistry {
+  const sub = new ToolRegistryImpl()
+  for (const tool of registry.list()) {
+    if (SUBAGENT_TOOLS.has(tool.id)) sub.register(tool)
+  }
+  return sub
 }

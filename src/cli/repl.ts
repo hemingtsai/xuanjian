@@ -118,13 +118,22 @@ async function handleLine(rl: readline.Interface, repl: Repl, line: string): Pro
       permission: runtime.permission,
       agent,
       model,
+      sessionManager: runtime.sessions,
       sink: renderer,
       askPermission: (req) => askPermissionInteractive(rl, req),
+      askUser: (question) => askUserInteractive(rl, question),
     })
   } catch (err) {
     process.stdout.write(`\n\x1b[31m${err instanceof Error ? err.message : String(err)}\x1b[0m\n`)
   }
   rl.prompt()
+}
+
+function askUserInteractive(rl: readline.Interface, question: string): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    process.stdout.write(`\n\x1b[36m❓ ${question}\x1b[0m\n`)
+    rl.question("\x1b[90m回答: \x1b[0m", (answer) => resolve(answer.trim() || undefined))
+  })
 }
 
 function askPermissionInteractive(rl: readline.Interface, req: PermissionRequest): Promise<PermissionAnswer | undefined> {
