@@ -124,6 +124,8 @@ xuanjian lsp debug                   # 打印语言服务器映射与运行状�
 
 **Provider 连接引导**：未配置模型且无任何 provider 凭据时，输入框上方显示 `🔑 尚未连接任何 provider` 引导条。按 `C-o` 或输入 `/auth` 打开连接向导（provider 选择 → API key 输入 → 保存并设默认模型）。
 
+**弹窗（modal）**：所有弹窗（权限确认、提问、provider 选择）都在屏幕中央全屏遮罩中居中显示。provider 选择列表超过终端高度时内部滚动（↑↓），`Enter` 确认、`Esc`/`Ctrl-C` 取消。
+
 **键位**：
 
 | 键 | 行为 |

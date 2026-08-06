@@ -1,6 +1,6 @@
 import { For, createEffect, createSignal } from "solid-js"
 import type { JSX } from "@opentui/solid"
-import { useKeyboard } from "@opentui/solid"
+import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import type { TuiController } from "./controller"
 import type { OutputPart } from "./parts"
 import type { StatusInfo } from "./status"
@@ -60,22 +60,26 @@ export function App(props: { controller: TuiController }): JSX.Element {
   })
 
   return (
-    <box flexDirection="column" flexGrow={1} flexShrink={1}>
-      <scrollbox
-        ref={(el) => {
-          scrollRef = el as unknown as { scrollTop: number }
-        }}
-        flexGrow={1}
-        flexShrink={1}
-        paddingX={1}
-      >
-        <For each={controller.out.parts()}>
-          {(part) => <PartView part={part} />}
-        </For>
-      </scrollbox>
+    <box flexDirection="column" flexGrow={1} flexShrink={1} width="100%" height="100%">
+      {controller.modal() ? null : (
+        <scrollbox
+          ref={(el) => {
+            scrollRef = el as unknown as { scrollTop: number }
+          }}
+          flexGrow={1}
+          flexShrink={1}
+          paddingX={1}
+        >
+          <For each={controller.out.parts()}>
+            {(part) => <PartView part={part} />}
+          </For>
+        </scrollbox>
+      )}
 
       {controller.modal() ? (
-        <ModalView controller={controller} modal={controller.modal()!} />
+        <box flexGrow={1} flexShrink={1} width="100%" flexDirection="column" alignItems="center" justifyContent="center" backgroundColor="#0a0e14">
+          <ModalView controller={controller} modal={controller.modal()!} />
+        </box>
       ) : null}
 
       {controller.needsOnboarding() ? (
@@ -192,12 +196,15 @@ export function PartView(props: { part: OutputPart }): JSX.Element {
 
 function ModalView(props: { controller: TuiController; modal: { kind: string } & Record<string, unknown> }): JSX.Element {
   const modal = props.modal
+  const dims = useTerminalDimensions()
+  const width = Math.min(dims().width - 4, 60)
+
   if (modal.kind === "select") {
     const options = (modal.options as { name: string; description: string; value: string }[]) ?? []
-    const selectHeight = options.length * 2
-    const boxHeight = Math.min(selectHeight + 4, 16)
+    const selectHeight = Math.min(Math.max(options.length, 3) * 2, 10)
+    const boxHeight = selectHeight + 3
     return (
-      <box flexShrink={0} width="100%" paddingX={1} backgroundColor="#1e293b" borderStyle="rounded" borderColor="#475569" flexDirection="column" height={boxHeight}>
+      <box flexShrink={0} width={width} height={boxHeight} backgroundColor="#1e293b" borderStyle="rounded" borderColor="#475569" flexDirection="column" paddingX={1}>
         <text fg="#fde047">◈ {String(modal.title)}（↑↓ 选择 · Enter 确认 · Esc/Ctrl-C 取消）</text>
         <select
           flexGrow={1}
@@ -216,39 +223,37 @@ function ModalView(props: { controller: TuiController; modal: { kind: string } &
   const [value, setValue] = createSignal("")
 
   return (
-    <box flexShrink={0} paddingX={1} backgroundColor="#1e293b" borderStyle="rounded" borderColor="#475569">
-      <box flexDirection="column">
-        <text fg="#fde047">⚠ {String(modal.text)}</text>
-        <input
-          focused
-          value={value()}
-          maxLength={isPermission ? 1 : undefined}
-          onChange={(v) => setValue(v)}
-          onKeyDown={(e) => {
-            if (e.ctrl && e.name === "c") {
-              props.controller.cancelModal()
-              e.preventDefault()
-              return
-            }
-            if (isPermission && e.name.length === 1 && !e.ctrl && !e.meta && !e.option) {
-              const a = e.name.toLowerCase()
-              const answer = a === "y" ? "allow" : a === "n" ? "deny" : a === "a" ? "session" : a === "s" ? "always" : "deny"
-              props.controller.resolveModal(answer)
-              e.preventDefault()
-            }
-          }}
-          onSubmit={(v) => {
-            const valueStr = typeof v === "string" ? v : ""
-            if (isPermission) {
-              const a = valueStr.toLowerCase()
-              props.controller.resolveModal(a === "y" ? "allow" : a === "n" ? "deny" : a === "a" ? "session" : a === "s" ? "always" : "deny")
-            } else {
-              props.controller.resolveModal(valueStr)
-            }
-          }}
-          placeholder={isPermission ? "y=允许 n=拒绝 a=会话 s=总是" : "回答（Enter 提交）"}
-        />
-      </box>
+    <box flexShrink={0} width={width} height={4} flexDirection="column" paddingX={1} backgroundColor="#1e293b" borderStyle="rounded" borderColor="#475569">
+      <text fg="#fde047">⚠ {String(modal.text)}</text>
+      <input
+        focused
+        value={value()}
+        maxLength={isPermission ? 1 : undefined}
+        onChange={(v) => setValue(v)}
+        onKeyDown={(e) => {
+          if (e.ctrl && e.name === "c") {
+            props.controller.cancelModal()
+            e.preventDefault()
+            return
+          }
+          if (isPermission && e.name.length === 1 && !e.ctrl && !e.meta && !e.option) {
+            const a = e.name.toLowerCase()
+            const answer = a === "y" ? "allow" : a === "n" ? "deny" : a === "a" ? "session" : a === "s" ? "always" : "deny"
+            props.controller.resolveModal(answer)
+            e.preventDefault()
+          }
+        }}
+        onSubmit={(v) => {
+          const valueStr = typeof v === "string" ? v : ""
+          if (isPermission) {
+            const a = valueStr.toLowerCase()
+            props.controller.resolveModal(a === "y" ? "allow" : a === "n" ? "deny" : a === "a" ? "session" : a === "s" ? "always" : "deny")
+          } else {
+            props.controller.resolveModal(valueStr)
+          }
+        }}
+        placeholder={isPermission ? "y=允许 n=拒绝 a=会话 s=总是" : "回答（Enter 提交）"}
+      />
     </box>
   )
 }
