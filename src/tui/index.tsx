@@ -110,12 +110,15 @@ function registerTuiSlash(controller: TuiController): void {
 
   registerSlash("auth", async (args) => {
     if (args) {
-      const { authLogin } = await import("../cli/auth")
-      const { loadConfig } = await import("../config/loader")
-      const config = await loadConfig()
-      const code = await authLogin(config, args)
-      controller.refreshStatus()
-      return code === 0 ? `✓ 已连接 ${args}` : `连接 ${args} 失败`
+      // 直接以 provider id 进入 key 步骤
+      const { loginTargets } = await import("../cli/auth")
+      const targets = loginTargets(controller.runtime.config)
+      if (!targets.some((t) => t.id === args.toLowerCase())) {
+        return `未知 provider: ${args}`
+      }
+      await controller.openAuthWizard()
+      await controller.handleAuthInput(args)
+      return controller.authStep === "key" ? `已选择 ${args}，输入 API key（Enter 提交）` : `连接 ${args} 失败`
     }
     void controller.openAuthWizard()
     return undefined

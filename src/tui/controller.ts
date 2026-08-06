@@ -35,6 +35,9 @@ export class TuiController {
   private history: string[] = []
   private hIndex = -1
   private abortCtrl: AbortController | null = null
+  authStep: "none" | "select" | "key" = "none"
+  private authTargets: import("../cli/auth").LoginTarget[] = []
+  private authTarget: import("../cli/auth").LoginTarget | null = null
   onExit: (() => void) | null = null
   clipboard: ((text: string) => boolean) | null = null
 
@@ -90,6 +93,13 @@ export class TuiController {
   async submit(raw: string): Promise<void> {
     const text = raw.trim()
     if (!text || this.busy()) return
+
+    // auth 向导：输入走向导而非聊天
+    if (this.authStep !== "none") {
+      await this.handleAuthInput(text)
+      return
+    }
+
     this.pushHistory(text)
     this.out.push({ type: "user", text })
     if (text.startsWith("/")) {
@@ -165,39 +175,58 @@ export class TuiController {
   }
 
   async openAuthWizard(): Promise<void> {
+    if (this.authStep !== "none") return
     const { loginTargets } = await import("../cli/auth")
     const { hasApiKey } = await import("../config/credentials")
-    const targets = loginTargets(this.runtime.config)
-    const connected = new Set(targets.filter((t) => hasApiKey(t.id)).map((t) => t.id))
-    const providerId = await this.selectFromList(
-      "选择要连接的 provider",
-      targets.map((t) => ({
-        name: t.id + (connected.has(t.id) ? " ✓" : ""),
-        description: t.label,
-        value: t.id,
-      })),
-    )
-    if (!providerId) return
-    const target = targets.find((t) => t.id === providerId)
-    if (!target) return
-    const apiKey = await this.askUser(`输入 ${providerId} 的 API key：`)
-    if (!apiKey || !apiKey.trim()) {
-      this.out.push({ type: "system", text: `已取消连接 ${providerId}` })
-      return
-    }
-    const { setCredential } = await import("../config/credentials")
-    setCredential(providerId, { apiKey: apiKey.trim() })
-    this.out.push({ type: "system", text: `✓ 已连接 ${providerId}（key: ${maskKey(apiKey.trim())}）` })
-    if (!this.runtime.config.model && target.defaultModel) {
-      const { setOverride } = await import("../config/overrides")
-      await setOverride("model", target.defaultModel)
-      this.runtime.config.model = target.defaultModel
-      this.out.push({ type: "system", text: `默认模型已设为 ${target.defaultModel}` })
-    }
-    this.refreshStatus()
+    this.authTargets = loginTargets(this.runtime.config)
+    this.out.push({ type: "system", text: "选择要连接的 provider（输入编号，或直接输入 provider 名）:" })
+    this.authTargets.forEach((t, i) => {
+      const connected = hasApiKey(t.id) || (t.apiKeyEnv ? Boolean(process.env[t.apiKeyEnv]) : false)
+      this.out.push({ type: "system", text: `  ${String(i + 1).padStart(2)}. ${t.id}${connected ? " ✓" : ""}` })
+    })
+    this.authStep = "select"
   }
 
-  resolveModal(value: unknown): void {
+  /** 主输入框在 auth 向导中的路由：返回 true 表示已消费输入 */
+  async handleAuthInput(text: string): Promise<boolean> {
+    if (this.authStep === "select") {
+      const idx = Number.parseInt(text, 10)
+      let target = this.authTargets[idx - 1]
+      if (!target) target = this.authTargets.find((t) => t.id === text.toLowerCase())
+      if (!target) {
+        this.out.push({ type: "error", text: `无效编号/名称: ${text}。` })
+        return true
+      }
+      this.authTarget = target
+      this.authStep = "key"
+      this.out.push({ type: "system", text: `输入 ${target.id} 的 API key（粘贴或输入后 Enter）:` })
+      return true
+    }
+    if (this.authStep === "key" && this.authTarget) {
+      const apiKey = text
+      if (!apiKey) {
+        this.out.push({ type: "system", text: "已取消连接" })
+      } else {
+        const { setCredential } = await import("../config/credentials")
+        setCredential(this.authTarget.id, { apiKey })
+        const connectedText = `✓ 已连接 ${this.authTarget.id}（key: ${maskKey(apiKey)}）`
+        this.out.push({ type: "system", text: connectedText })
+        // @opentui/solid 的 parts 渲染不可靠，stderr 兜底确保反馈可见
+        process.stderr.write(`\n${connectedText}\n`)
+        if (!this.runtime.config.model && this.authTarget.defaultModel) {
+          const { setOverride } = await import("../config/overrides")
+          await setOverride("model", this.authTarget.defaultModel)
+          this.runtime.config.model = this.authTarget.defaultModel
+          this.out.push({ type: "system", text: `默认模型已设为 ${this.authTarget.defaultModel}` })
+        }
+      }
+      this.authStep = "none"
+      this.authTarget = null
+      this.authTargets = []
+      return true
+    }
+    return false
+  }  resolveModal(value: unknown): void {
     const m = this.modal()
     if (!m) return
     this.setModal(null)

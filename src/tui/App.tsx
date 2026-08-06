@@ -173,7 +173,6 @@ export function App(props: { controller: TuiController }): JSX.Element {
               }
             }
           }}
-          placeholder="输入消息，/help 查看命令"
         />
       </box>
 
@@ -289,7 +288,9 @@ function ModalView(props: { controller: TuiController; modal: { kind: string } &
   return (
     <box flexShrink={0} width={width} height={4} flexDirection="column" paddingX={1} backgroundColor="#1e293b" borderStyle="rounded" borderColor="#475569">
       <text fg="#fde047">⚠ {String(modal.text)}</text>
-      <text fg="#e2e8f0">{v}</text>
+      <box flexDirection="row">
+        <For each={v.split("")}>{(c: any) => <text fg="#e2e8f0">{c()}</text>}</For>
+      </box>
     </box>
   )
 }

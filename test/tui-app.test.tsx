@@ -36,7 +36,7 @@ test("TUI App 初始渲染：banner + 状态栏 + 输入框", async () => {
   expect(frame).toContain("LSP:")
   expect(frame).toContain("DAP:")
   expect(frame).toContain("ctx:")
-  expect(frame).toContain("输入消息")
+  expect(frame).toContain("模型:")
 
   runtime.store.close()
 })
@@ -100,9 +100,12 @@ test("TuiController 历史记录", async () => {
 })
 
 test("TUI onboarding: 无 model 且无凭据时显示引导栏", async () => {
+  const { deleteCredential } = await import("../src/config/credentials")
+  deleteCredential("anthropic")
   const runtime = await createRuntime({ config })
   const session = runtime.sessions.create({ cwd: "/tmp" })
   const controller = new TuiController(runtime, session)
+  expect(controller.needsOnboarding()).toBe(true)
 
   const { renderer, renderOnce, captureCharFrame } = await testRender(() => <App controller={controller} />, {
     width: 60,
@@ -116,12 +119,10 @@ test("TUI onboarding: 无 model 且无凭据时显示引导栏", async () => {
   runtime.store.close()
 })
 
-test("TuiController select 模态 + 连接向导流程", async () => {
+test("TuiController select 模态", async () => {
   const runtime = await createRuntime({ config })
   const session = runtime.sessions.create({ cwd: "/tmp" })
   const controller = new TuiController(runtime, session)
-
-  expect(controller.needsOnboarding()).toBe(true)
 
   const promise = controller.selectFromList("选 provider", [
     { name: "anthropic", description: "Claude 系列", value: "anthropic" },
@@ -137,21 +138,21 @@ test("TuiController select 模态 + 连接向导流程", async () => {
   runtime.store.close()
 })
 
-test("openAuthWizard: 选 provider → 输 key → 保存凭据并设模型", async () => {
+test("openAuthWizard: 主输入流选 provider → 输 key → 保存凭据并设模型", async () => {
   const runtime = await createRuntime({ config })
   const session = runtime.sessions.create({ cwd: "/tmp" })
   const controller = new TuiController(runtime, session)
 
-  const wizard = controller.openAuthWizard()
-  await new Promise((r) => setTimeout(r, 0))
-  expect(controller.modal()?.kind).toBe("select")
+  await controller.openAuthWizard()
+  expect(controller.authStep).toBe("select")
 
-  controller.resolveModal("anthropic")
-  await new Promise((r) => setTimeout(r, 0))
-  expect(controller.modal()?.kind).toBe("ask")
+  // 输入编号选择 anthropic
+  expect(await controller.handleAuthInput("1")).toBe(true)
+  expect(controller.authStep).toBe("key")
 
-  controller.resolveModal("sk-ant-unit-test")
-  await wizard
+  // 输入 key
+  expect(await controller.handleAuthInput("sk-ant-unit-test")).toBe(true)
+  expect(controller.authStep).toBe("none")
 
   const { hasApiKey } = await import("../src/config/credentials")
   expect(hasApiKey("anthropic")).toBe(true)
@@ -193,7 +194,7 @@ test("粘贴到输入框 + 复制最后回复", async () => {
 
   // 自定义输入框渲染 placeholder 与光标块
   const frame = captureCharFrame()
-  expect(frame).toContain("输入消息")
+  expect(frame).toContain("模型:")
 
   // 复制最后回复（OSC52 剪贴板回调）
   let copied = ""
