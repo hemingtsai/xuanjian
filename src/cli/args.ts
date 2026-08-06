@@ -137,7 +137,7 @@ export function parseArgs(argv: string[]): { command: Command; options: Options 
       configValue = positionals[2]
     }
   } else if (command === "providers") {
-    providersId = positionals[0]
+    providersId = positionals[0] === "list" || positionals[0] === "ls" ? positionals[1] : positionals[0]
   } else if (command === "review") {
     reviewTodo = positionals[0]
   } else if (command === "goals") {

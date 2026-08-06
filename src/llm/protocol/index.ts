@@ -1,5 +1,6 @@
 import type { Adapter, AdapterType } from "../llm"
 import { AnthropicAdapter } from "./anthropic-messages"
+import { OpenAICompatibleAdapter } from "./openai-chat"
 
 const adapters = new Map<AdapterType, Adapter>()
 
@@ -16,3 +17,4 @@ export function getAdapter(type: AdapterType): Adapter {
 }
 
 registerAdapter(new AnthropicAdapter())
+registerAdapter(new OpenAICompatibleAdapter())

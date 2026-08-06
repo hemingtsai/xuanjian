@@ -5,6 +5,7 @@ import { runTask } from "./cli/run"
 import { loadConfig, getByPath } from "./config/loader"
 import { setOverride } from "./config/overrides"
 import { configFilePath, ensureConfigDir } from "./config/paths"
+import { listModels, listProviders } from "./llm/catalog"
 
 const VERSION = "0.1.0"
 
@@ -135,6 +136,24 @@ async function main(): Promise<void> {
     case "config":
       await handleConfig(command.sub, command.key, command.value)
       return
+    case "providers": {
+      const config = await loadConfig()
+      if (command.id) {
+        const models = listModels(command.id, config)
+        if (models.length === 0) {
+          process.stdout.write(`provider ${command.id} 无已知模型\n`)
+          return
+        }
+        for (const m of models) {
+          process.stdout.write(`${command.id}/${m.id}` + (m.name ? `  ${m.name}` : "") + (m.context ? `  (${m.context})` : "") + "\n")
+        }
+        return
+      }
+      for (const p of listProviders(config)) {
+        process.stdout.write(`${p.id}  [${p.type}]` + (p.custom ? "  (自定义)" : "") + `  ${p.models} 模型\n`)
+      }
+      return
+    }
     default:
       process.stdout.write(`命令 ${command.kind} 尚未实现（下一功能提交）\n`)
   }
