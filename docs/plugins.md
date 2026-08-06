@@ -6,7 +6,7 @@
 
 | 来源 | 路径 | 配置方式 |
 |---|---|---|
-| 用户插件 | `~/.config/xuanjian/plugins/<name>.lua` | `plugins = { "name" }` |
+| 用户插件 | `~/.config/xuanjian.d/plugins/<name>.lua` | `plugins = { "name" }` |
 | 显式路径 | 任意绝对路径 | `plugins = { { path = "/abs/plugin.lua" } }` |
 | 项目本地 | `<cwd>/.xuanjian/plugins/<name>.lua` | 自动发现（可选） |
 
@@ -15,7 +15,7 @@
 ## 最小插件
 
 ```lua
--- ~/.config/xuanjian/plugins/hello.lua
+-- ~/.config/xuanjian.d/plugins/hello.lua
 x.log.info("hello plugin loaded")
 ```
 
@@ -90,17 +90,20 @@ end)
 1. **回调内禁止裸 `:await()`**（wasmoon 跨 C 边界 yield 限制）。需要异步时：
    - 简单场景：直接返回 Promise。例：`x.hooks.on("tool.before_call", function() return x.system.run("...") end)` — 玄鉴会 await 该 Promise。
    - 复杂流程：`x.async.wrap(function() ... :await() ... end)`。
-2. **工具 `call` 同理**：同步返回或返回 Promise，或经 `x.async.wrap`。
-3. 顶层（加载期）可自由 `:await()`？——**不能**。顶层如需异步初始化，包在 `x.async.wrap` 里并在 `config.loaded` hook 中调用。
+2. **`x.async.wrap` 必须在"顶层上下文"调用**（插件文件顶层、配置脚本顶层、`doString` 顶层）。不要在 JS→Lua 回调（hook 回调、工具 `call` 函数）内部调用 `x.async.wrap(...)`——那会运行在不可 yield 的主线程上，协程会失败。正确做法是顶层创建、回调内复用：
 
 ```lua
--- 顶层异步初始化示例
-local init = x.async.wrap(function()
-  local r = x.system.run("which go"):await()
-  x.state.set("has_go", r.code == 0)
+-- 顶层创建
+local heavy = x.async.wrap(function()
+  local r = x.system.run("git status"):await()
+  return r.stdout
 end)
-x.hooks.on("config.loaded", init)
+-- 工具 call 里复用（只是返回 Promise，不 yield）
+x.tool.register { name = "git_status", call = function() return heavy() end }
 ```
+
+3. **工具 `call` 同理**：同步返回或返回 Promise，或经顶层创建的 `x.async.wrap` 包装。
+4. 顶层异步初始化：用 `x.async.wrap` 包装后在 `config.loaded` hook 中调用（hook 仅调用已包装的函数，内部可 `:await()`）。
 
 ## 持久化状态
 

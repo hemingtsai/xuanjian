@@ -1,6 +1,6 @@
 # 配置 Config
 
-配置文件为 `~/.config/xuanjian.lua`（可用 `xuanjian config path` 查看实际路径）。
+配置文件为 `~/.config/xuanjian.lua`（可用 `xuanjian config path` 查看实际路径；支持 `XDG_CONFIG_HOME`）。
 
 它是一个 **Lua 脚本**，**返回值即配置表**。加载顺序：
 
@@ -11,6 +11,8 @@
 5. 缺失字段用默认值补齐
 
 优先级：**overrides > 用户配置 > 默认值**。
+
+辅助目录 `~/.config/xuanjian.d/`：`plugins/`（插件）、`overrides.lua`（运行时覆盖，自动生成）。
 
 ## 完整字段参考
 
@@ -115,7 +117,7 @@ return {
   },
 
   -- ============ plugins ============
-  -- 字符串: 从 ~/.config/xuanjian/plugins/<name>.lua 加载
+  -- 字符串: 从 ~/.config/xuanjian.d/plugins/<name>.lua 加载
   -- 表:    { path = "/abs/path.lua" } 显式路径
   plugins = {
     "my-plugin",
