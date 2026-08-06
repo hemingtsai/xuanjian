@@ -13,7 +13,7 @@ export interface PluginLoadResult {
   error?: string
 }
 
-function resolvePluginRef(ref: PluginRef, cwd: string): string | undefined {
+export function resolvePluginRef(ref: PluginRef, cwd: string): string | undefined {
   if (typeof ref === "string") {
     const candidates = [
       path.join(pluginsDir(), `${ref}.lua`),

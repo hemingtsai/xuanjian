@@ -91,6 +91,15 @@ export class Session {
     }
     return messages
   }
+
+  /** 压缩会话：保留最前 keepFirst 条 + 最后 keepLast 条，删除中间消息 */
+  compact(keepFirst: number, keepLast: number): number {
+    const all = this.messages()
+    if (all.length <= keepFirst + keepLast) return 0
+    const removed = all.slice(keepFirst, all.length - keepLast)
+    this.store.deleteMessages(this.id, removed.map((m) => m.id))
+    return removed.length
+  }
 }
 
 export class SessionManager {

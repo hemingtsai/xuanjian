@@ -1,6 +1,6 @@
 import path from "node:path"
 import { LSPClient } from "./client"
-import { serverFor } from "./servers"
+import { serverFor, DEFAULT_SERVERS as DEFAULT_SERVER_LANGS } from "./servers"
 import type { Config } from "../config/schema"
 import { emit } from "../core/events"
 
@@ -63,6 +63,20 @@ export class LSPManager {
 
   getDiagnostics(uri: string): LSPDiagnostic[] {
     return this.diagnostics.get(uri) ?? []
+  }
+
+  debugInfo(): {
+    languages: { language: string; server: import("./servers").ServerConfig | undefined; running: boolean; shuttered: boolean }[]
+  } {
+    const languages = Object.keys(DEFAULT_SERVER_LANGS)
+    return {
+      languages: languages.map((language) => ({
+        language,
+        server: serverFor(language, this.config.lsp),
+        running: Boolean(this.clients.get(language)),
+        shuttered: this.shuttered.has(language),
+      })),
+    }
   }
 
   private subscribeDiagnostics(client: LSPClient): void {

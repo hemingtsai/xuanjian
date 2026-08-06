@@ -72,6 +72,12 @@ export async function runAgentTurn(input: string, opts: LoopOptions): Promise<Tu
   session.addMessage({ role: "user", content: input })
   await Events.emit("message.user", { session_id: session.id, text: input })
 
+  // 自动上下文压缩：消息超过 50 条时压缩历史
+  const messageCount = session.messages().length
+  if (messageCount > 50) {
+    session.compact(2, 20)
+  }
+
   const tools = selectTools(registry, agent)
   const toolMap = new Map(registry.list().map((t) => [t.id, t]))
 

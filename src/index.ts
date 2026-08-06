@@ -10,6 +10,7 @@ import { runReview } from "./review/pipeline"
 import { resolveAgent } from "./core/agent"
 import { createRuntime } from "./core/runtime"
 import { executeGoal, formatGoalReport } from "./goal/loop"
+import { runDoctor } from "./cli/doctor"
 
 const VERSION = "0.1.0"
 
@@ -217,8 +218,37 @@ async function main(): Promise<void> {
       }
       return
     }
-    default:
-      process.stdout.write(`命令 ${command.kind} 尚未实现（下一功能提交）\n`)
+    case "plugins": {
+      const config = await loadConfig()
+      const { resolvePluginRef } = await import("./lua/loader")
+      const cwd = options.directory ? await import("node:path").then((p) => p.resolve(process.cwd(), options.directory!)) : process.cwd()
+      for (const ref of config.plugins) {
+        const name = typeof ref === "string" ? ref : ref.path
+        const file = resolvePluginRef(ref, cwd)
+        process.stdout.write(`${name}: ${file ? file : "未找到"}\n`)
+      }
+      if (config.plugins.length === 0) process.stdout.write("未配置插件。\n")
+      return
+    }
+    case "lsp": {
+      const config = await loadConfig()
+      const cwd = options.directory ? await import("node:path").then((p) => p.resolve(process.cwd(), options.directory!)) : process.cwd()
+      const { LSPManager } = await import("./lsp/manager")
+      const manager = new LSPManager(config, cwd)
+      for (const lang of manager.debugInfo().languages) {
+        const server = lang.server
+        if (!server) {
+          process.stdout.write(`- ${lang}: 未配置/已禁用\n`)
+          continue
+        }
+        const status = lang.shuttered ? "（已禁用：连续失败）" : lang.running ? "（运行中）" : ""
+        process.stdout.write(`- ${lang}: ${server.command} ${server.args.join(" ")} ${status}\n`)
+      }
+      return
+    }
+    case "doctor":
+      process.exitCode = await runDoctor(options)
+      return
   }
 }
 

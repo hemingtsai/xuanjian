@@ -185,7 +185,10 @@ registerSlash("goal", async (args, repl) => {
   return undefined
 })
 
-registerSlash("compact", () => "上下文压缩将在后续功能提交中实现。")
+registerSlash("compact", (_, repl) => {
+  const removed = repl.session.compact(2, 20)
+  return removed > 0 ? `已压缩 ${removed} 条消息。` : "消息数不足以压缩。"
+})
 registerSlash("cost", () => "费用统计将在后续功能提交中实现。")
 registerSlash("review", async (args, repl) => {
   const model = repl.model()

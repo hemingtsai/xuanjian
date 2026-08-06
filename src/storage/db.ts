@@ -130,6 +130,12 @@ export class Store {
     return rows.map(mapMessage)
   }
 
+  deleteMessages(sessionId: string, ids: string[]): void {
+    if (ids.length === 0) return
+    const placeholders = ids.map(() => "?").join(",")
+    this.db.query(`DELETE FROM messages WHERE session_id = ? AND id IN (${placeholders})`).run(sessionId, ...ids)
+  }
+
   // ---- goals ----
   upsertGoal(g: GoalRecord): void {
     this.db
