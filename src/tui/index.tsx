@@ -3,6 +3,7 @@ import { render } from "@opentui/solid"
 import { createCliRenderer } from "@opentui/core"
 import { logoColumns, bannerTitle } from "../cli/banner"
 import type { Options } from "../cli/args"
+import { loadConfig } from "../config/loader"
 import { createRuntime } from "../core/runtime"
 import { resolveAgent } from "../core/agent"
 import { registerSlash } from "../core/slash"
@@ -18,8 +19,13 @@ export async function runTui(options: Options): Promise<void> {
     return
   }
 
-  const cwd = options.directory ? path.resolve(process.cwd(), options.directory) : process.cwd()
-  const runtime = await createRuntime({ yes: options.yes })
+  const config = await loadConfig()
+  const StoreMod = await import("../storage/db")
+  const peek = StoreMod.Store.open()
+  const explicitCwd = options.sessionId ? peek.getSession(options.sessionId)?.cwd : undefined
+  peek.close()
+  const cwd = explicitCwd ?? (options.directory ? path.resolve(process.cwd(), options.directory) : (config.workspace ?? process.cwd()))
+  const runtime = await createRuntime({ yes: options.yes, cwd })
 
   let session =
     (options.sessionId ? runtime.sessions.load(options.sessionId) : undefined) ??
@@ -57,6 +63,9 @@ function registerTuiSlash(controller: TuiController): void {
       "/model [id]   查看/切换模型",
       "/agent [id]   查看/切换 agent",
       "/auth [id]    连接 provider（C-o 打开向导）",
+      "/workspace [p] 切换工作区",
+      "/sessions      按工作区列出会话",
+      "/session 操作   恢复/删除会话（resume/delete <id>）",
       "/goal \"目标\"  创建并执行 goal",
       "/review [todo] 触发审查流水线",
       "/compact      压缩上下文",
@@ -72,6 +81,31 @@ function registerTuiSlash(controller: TuiController): void {
     session.setModel(args)
     controller.refreshStatus()
     return `已切换模型: ${args}`
+  })
+
+  registerSlash("workspace", (args) => {
+    if (!args) return `当前工作区: ${session.cwd}`
+    const cwd = path.isAbsolute(args) ? args : path.resolve(session.cwd, args)
+    controller.switchWorkspace(cwd)
+    return `已切换工作区: ${cwd}`
+  })
+
+  registerSlash("sessions", () => controller.listSessionsText())
+
+  registerSlash("session", async (args) => {
+    const parts = args.split(/\s+/).filter(Boolean)
+    const [sub, id] = parts
+    if (!sub) return "用法: /session resume <id> | /session delete <id>"
+    if (!id) return "需要 session id（/sessions 查看）"
+    if (sub === "resume") {
+      if (controller.resumeSession(id)) return `已恢复会话 ${id}，工作区 ${session.cwd}`
+      return `会话不存在: ${id}`
+    }
+    if (sub === "delete") {
+      if (controller.deleteSession(id)) return `已删除会话 ${id}`
+      return `会话不存在: ${id}`
+    }
+    return "用法: /session resume <id> | /session delete <id>"
   })
 
   registerSlash("auth", async (args) => {

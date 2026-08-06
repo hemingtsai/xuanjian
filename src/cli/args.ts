@@ -2,6 +2,8 @@ export type Command =
   | { kind: "repl" }
   | { kind: "run"; message: string; goal: string | undefined; review: boolean }
   | { kind: "config"; sub: "init" | "path" | "get" | "set"; key: string | undefined; value: string | undefined }
+  | { kind: "workspace"; path: string | undefined }
+  | { kind: "sessions"; sub: "list" | "resume" | "delete"; id: string | undefined }
   | { kind: "providers"; id: string | undefined }
   | { kind: "auth"; sub: "login" | "logout" | "list"; id: string | undefined }
   | { kind: "review"; todo: string | undefined; noAutoCommit: boolean }
@@ -50,6 +52,9 @@ export function parseArgs(argv: string[]): { command: Command; options: Options 
   let configKey: string | undefined
   let configValue: string | undefined
   let providersId: string | undefined
+  let workspacePath: string | undefined
+  let sessionsSub: "list" | "resume" | "delete" = "list"
+  let sessionsId: string | undefined
   let authSub: "login" | "logout" | "list" = "list"
   let authId: string | undefined
   let reviewTodo: string | undefined
@@ -139,6 +144,11 @@ export function parseArgs(argv: string[]): { command: Command; options: Options 
       configKey = positionals[1]
       configValue = positionals[2]
     }
+  } else if (command === "workspace") {
+    workspacePath = positionals[0]
+  } else if (command === "sessions" || command === "session") {
+    sessionsSub = (positionals[0] === "resume" || positionals[0] === "delete" ? positionals[0] : "list") as "list" | "resume" | "delete"
+    sessionsId = positionals[1]
   } else if (command === "providers") {
     providersId = positionals[0] === "list" || positionals[0] === "ls" ? positionals[1] : positionals[0]
   } else if (command === "auth") {
@@ -163,6 +173,13 @@ export function parseArgs(argv: string[]): { command: Command; options: Options 
       break
     case "config":
       finalCommand = { kind: "config", sub: configSub as "init" | "path" | "get" | "set", key: configKey, value: configValue }
+      break
+    case "workspace":
+      finalCommand = { kind: "workspace", path: workspacePath }
+      break
+    case "sessions":
+    case "session":
+      finalCommand = { kind: "sessions", sub: sessionsSub, id: sessionsId }
       break
     case "providers":
       finalCommand = { kind: "providers", id: providersId }

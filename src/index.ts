@@ -144,6 +144,64 @@ async function main(): Promise<void> {
     case "config":
       await handleConfig(command.sub, command.key, command.value)
       return
+    case "workspace": {
+      const config = await loadConfig()
+      if (!command.path) {
+        process.stdout.write(`${config.workspace ?? process.cwd()}\n`)
+        return
+      }
+      const abs = await import("node:path").then((p) => p.resolve(process.cwd(), command.path!))
+      await setOverride("workspace", abs)
+      process.stdout.write(`工作区已切换: ${abs}\n`)
+      return
+    }
+    case "sessions": {
+      const runtime = await createRuntime({ yes: options.yes })
+      try {
+        if (command.sub === "list") {
+          const groups = runtime.sessions.listByWorkspace()
+          if (groups.length === 0) {
+            process.stdout.write("暂无会话。\n")
+            return
+          }
+          for (const group of groups) {
+            process.stdout.write(`\n[工作区] ${group.cwd}\n`)
+            for (const s of group.sessions) {
+              const title = s.title ? ` "${s.title}"` : ""
+              process.stdout.write(`  ${s.id}${title}  ${s.model ?? "?"}  ${s.messageCount} 条消息  ${new Date(s.updatedAt).toLocaleString()}\n`)
+            }
+          }
+          return
+        }
+        if (!command.id) {
+          process.stderr.write(`sessions ${command.sub} 需要 session id\n`)
+          process.exitCode = 1
+          return
+        }
+        if (command.sub === "delete") {
+          const ok = runtime.sessions.delete(command.id)
+          process.stdout.write(ok ? `已删除会话 ${command.id}\n` : `会话不存在: ${command.id}\n`)
+          if (!ok) process.exitCode = 1
+          return
+        }
+        // resume
+        const session = runtime.sessions.load(command.id)
+        if (!session) {
+          process.stderr.write(`会话不存在: ${command.id}\n`)
+          process.exitCode = 1
+          return
+        }
+        if (process.stdout.isTTY) {
+          runtime.store.close()
+          await runTui({ ...options, sessionId: command.id })
+          return
+        }
+        process.stdout.write(`会话 ${session.id} · 工作区 ${session.cwd} · ${session.messages().length} 条消息\n`)
+      } finally {
+        runtime.store.close()
+      }
+      return
+    }
     case "providers": {
       const config = await loadConfig()
       if (command.id) {

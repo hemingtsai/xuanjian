@@ -118,6 +118,14 @@ export class Store {
     return row ? mapSession(row) : undefined
   }
 
+  deleteSession(id: string): void {
+    this.db
+      .transaction(() => {
+        this.db.query(`DELETE FROM messages WHERE session_id = ?`).run(id)
+        this.db.query(`DELETE FROM sessions WHERE id = ?`).run(id)
+      })()
+  }
+
   // ---- messages ----
   addMessage(m: MessageRecord): void {
     this.db

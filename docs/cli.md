@@ -42,6 +42,23 @@ Flags：全局参数 + `--goal <目标>`（进入 goal 模式）、`--review`（
 xuanjian config init | path | get <key> | set <key> <value>
 ```
 
+### `xuanjian workspace`
+切换/查看工作区（默认工作目录，持久化到 overrides）。
+
+```
+xuanjian workspace                 # 查看当前工作区
+xuanjian workspace ~/my-project    # 切换工作区（后续 xuanjian/TUI 默认启动于此）
+```
+
+### `xuanjian sessions`
+会话管理（按工作区列出 / 恢复 / 删除）。
+
+```
+xuanjian sessions                          # 按工作区列出所有会话
+xuanjian sessions resume <id>              # 恢复会话（TTY 进入 TUI，非 TTY 打印摘要）
+xuanjian sessions delete <id>              # 删除会话及其消息
+```
+
 ### `xuanjian providers`
 Provider 与模型查询。
 
@@ -150,6 +167,10 @@ xuanjian lsp debug                   # 打印语言服务器映射与运行状�
 | `/help` | 帮助 |
 | `/model [id]` | 查看/切换模型 |
 | `/agent [id]` | 查看/切换 agent |
+| `/workspace [p]` | 查看/切换工作区（`p` 为路径，可相对） |
+| `/sessions` | 按工作区列出所有会话（`★` 标记当前） |
+| `/session resume <id>` | 恢复会话到当前 TUI |
+| `/session delete <id>` | 删除会话 |
 | `/goal "<目标>"` | 进入 goal 模式 |
 | `/review ["<todo>"]` | 触发审查流水线 |
 | `/compact` | 手动压缩上下文 |

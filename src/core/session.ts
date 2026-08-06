@@ -53,6 +53,11 @@ export class Session {
     this.store.updateSession(this.id, { title })
   }
 
+  setCwd(cwd: string): void {
+    this.data.cwd = cwd
+    this.store.updateSession(this.id, { cwd })
+  }
+
   messages(): MessageRecord[] {
     return this.store.listMessages(this.id)
   }
@@ -131,5 +136,28 @@ export class SessionManager {
   resumeLatest(): Session | undefined {
     const record = this.store.latestSession()
     return record ? new Session(this.store, record) : undefined
+  }
+
+  delete(id: string): boolean {
+    if (!this.store.getSession(id)) return false
+    this.store.deleteSession(id)
+    return true
+  }
+
+  listByWorkspace(): { cwd: string; sessions: { id: string; model?: string; agent?: string; title?: string; messageCount: number; updatedAt: number }[] }[] {
+    const grouped = new Map<string, { id: string; model?: string; agent?: string; title?: string; messageCount: number; updatedAt: number }[]>()
+    for (const record of this.store.listSessions()) {
+      const list = grouped.get(record.cwd) ?? []
+      list.push({
+        id: record.id,
+        model: record.model,
+        agent: record.agent,
+        title: record.title,
+        messageCount: this.store.listMessages(record.id).length,
+        updatedAt: record.updated_at,
+      })
+      grouped.set(record.cwd, list)
+    }
+    return Array.from(grouped.entries()).map(([cwd, sessions]) => ({ cwd, sessions }))
   }
 }

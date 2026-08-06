@@ -84,3 +84,27 @@ afterAll(() => {
   mock?.close()
   rmSync(dir, { recursive: true, force: true })
 })
+
+test("会话管理：按工作区列出 + 删除", async () => {
+  const { Store } = await import("../src/storage/db")
+  const { SessionManager } = await import("../src/core/session")
+  const store = Store.open()
+  const sm = new SessionManager(store)
+  const a = sm.create({ cwd: "/wsA", model: "m1" })
+  a.addMessage({ role: "user", content: "hi" })
+  const b = sm.create({ cwd: "/wsB" })
+  b.addMessage({ role: "user", content: "x" })
+  b.addMessage({ role: "assistant", content: "y" })
+
+  const groups = sm.listByWorkspace()
+  const wsA = groups.find((g) => g.cwd === "/wsA")
+  const wsB = groups.find((g) => g.cwd === "/wsB")
+  expect(wsA?.sessions[0]?.messageCount).toBe(1)
+  expect(wsB?.sessions[0]?.messageCount).toBe(2)
+
+  expect(sm.delete(a.id)).toBe(true)
+  expect(sm.load(a.id)).toBeUndefined()
+  expect(store.listMessages(a.id)).toEqual([])
+  expect(sm.delete(b.id)).toBe(true)
+  store.close()
+})

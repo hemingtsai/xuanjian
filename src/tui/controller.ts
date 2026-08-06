@@ -12,6 +12,7 @@ import { TuiOutput, createTuiSink } from "./parts"
 import { buildStatus, type StatusInfo } from "./status"
 import { loginTargets } from "../cli/auth"
 import { hasApiKey } from "../config/credentials"
+import { LSPManager } from "../lsp/manager"
 
 export type TuiModal =
   | { kind: "permission"; text: string; resolve: (v: PermissionAnswer) => void }
@@ -21,7 +22,7 @@ export type TuiModal =
 export class TuiController {
   readonly out: TuiOutput
   readonly runtime: Runtime
-  readonly session: Session
+  session: Session
   readonly status: Accessor<StatusInfo>
   readonly setStatus: Setter<StatusInfo>
   readonly modal: Accessor<TuiModal | null>
@@ -241,5 +242,42 @@ export class TuiController {
 
   clearOutput(): void {
     this.out.clear()
+  }
+
+  switchWorkspace(cwd: string): void {
+    this.session.setCwd(cwd)
+    this.runtime.lsp.shutdown()
+    this.runtime.lsp = new LSPManager(this.runtime.config, cwd)
+    this.refreshStatus()
+  }
+
+  resumeSession(id: string): boolean {
+    const loaded = this.runtime.sessions.load(id)
+    if (!loaded) return false
+    this.session = loaded
+    this.history = []
+    this.hIndex = -1
+    this.refreshStatus()
+    return true
+  }
+
+  deleteSession(id: string): boolean {
+    return this.runtime.sessions.delete(id)
+  }
+
+  listSessionsText(): string {
+    const groups = this.runtime.sessions.listByWorkspace()
+    if (groups.length === 0) return "暂无会话。"
+    const lines: string[] = []
+    for (const group of groups) {
+      lines.push(`[工作区] ${group.cwd}`)
+      for (const s of group.sessions) {
+        const title = s.title ? ` "${s.title}"` : ""
+        const mark = s.id === this.session.id ? " ★" : ""
+        lines.push(`  ${s.id}${title}  ${s.model ?? "?"}  ${s.messageCount} 条消息  ${new Date(s.updatedAt).toLocaleString()}${mark}`)
+      }
+      lines.push("")
+    }
+    return lines.join("\n").trimEnd()
   }
 }

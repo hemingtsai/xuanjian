@@ -75,6 +75,7 @@ export type PluginRef = string | { path: string }
 export interface Config {
   model?: string
   default_agent?: string
+  workspace?: string
   theme: "dark" | "light"
   provider: Record<string, ProviderEntry>
   lsp: Record<string, LspServerEntry>
