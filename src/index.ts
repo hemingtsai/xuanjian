@@ -8,6 +8,8 @@ import { configFilePath, ensureConfigDir } from "./config/paths"
 import { listModels, listProviders } from "./llm/catalog"
 import { runReview } from "./review/pipeline"
 import { resolveAgent } from "./core/agent"
+import { createRuntime } from "./core/runtime"
+import { executeGoal, formatGoalReport } from "./goal/loop"
 
 const VERSION = "0.1.0"
 
@@ -170,6 +172,49 @@ async function main(): Promise<void> {
       const output = await runReview({ todo: command.todo ?? "", cwd, config, model, noAutoCommit: command.noAutoCommit })
       if (output.report) process.stdout.write(output.report + "\n")
       else process.stdout.write("无变更或无匹配审查员。\n")
+      return
+    }
+    case "goals": {
+      const runtime = await createRuntime({ yes: options.yes })
+      try {
+        if (command.sub === "list") {
+          const goals = runtime.goals.list()
+          if (goals.length === 0) {
+            process.stdout.write("暂无 goal。使用 `xuanjian run --goal \"目标\"` 创建。\n")
+            return
+          }
+          for (const g of goals) {
+            const done = g.tasks.filter((t) => t.status === "done").length
+            process.stdout.write(`${g.id}  [${g.status}]  ${g.title}  (${done}/${g.tasks.length})\n`)
+          }
+          return
+        }
+        const id = command.id
+        if (!id) {
+          process.stderr.write(`goals ${command.sub} 需要 goal id\n`)
+          process.exitCode = 1
+          return
+        }
+        const goal = runtime.goals.load(id)
+        if (!goal) {
+          process.stderr.write(`goal 不存在: ${id}\n`)
+          process.exitCode = 1
+          return
+        }
+        if (command.sub === "status") {
+          process.stdout.write(formatGoalReport(goal) + "\n")
+        } else if (command.sub === "resume") {
+          const model = options.model ?? goal.model
+          await executeGoal({ runtime, goal, model })
+          process.stdout.write(formatGoalReport(goal) + "\n")
+        } else if (command.sub === "abort") {
+          goal.status = "cancelled"
+          runtime.goals.save(goal)
+          process.stdout.write(`goal 已中止: ${id}\n`)
+        }
+      } finally {
+        runtime.store.close()
+      }
       return
     }
     default:

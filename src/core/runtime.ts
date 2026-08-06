@@ -6,6 +6,7 @@ import { SessionManager } from "./session"
 import { createDefaultRegistry } from "../tools/index"
 import type { ToolRegistry } from "../tools/registry"
 import { LSPManager } from "../lsp/manager"
+import { GoalStore } from "../goal/goal"
 
 export interface Runtime {
   config: Config
@@ -14,6 +15,7 @@ export interface Runtime {
   permission: PermissionEngine
   registry: ToolRegistry
   lsp: LSPManager
+  goals: GoalStore
 }
 
 export async function createRuntime(opts?: {
@@ -28,5 +30,6 @@ export async function createRuntime(opts?: {
   const permission = new PermissionEngine(config.permission, opts?.yes ? { defaultOverride: "allow" } : undefined)
   const registry = createDefaultRegistry()
   const lsp = new LSPManager(config, cwd)
-  return { config, store, sessions, permission, registry, lsp }
+  const goals = new GoalStore(store)
+  return { config, store, sessions, permission, registry, lsp, goals }
 }

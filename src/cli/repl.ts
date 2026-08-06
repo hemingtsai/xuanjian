@@ -157,6 +157,8 @@ registerSlash("help", () => {
     "/help         帮助",
     "/model [id]   查看/切换模型",
     "/agent [id]   查看/切换 agent",
+    "/goal \"目标\"  创建并执行 goal",
+    "/review [todo] 触发审查流水线",
     "/compact      手动压缩上下文",
     "/clear        清屏",
     "/cost         显示 token/费用统计",
@@ -177,8 +179,29 @@ registerSlash("agent", (args, repl) => {
   return `已切换 agent: ${args}`
 })
 
+registerSlash("goal", async (args, repl) => {
+  if (!args) return "用法: /goal \"目标描述\""
+  const model = repl.model()
+  if (!model) return "未配置模型，用 /model <provider/model> 指定。"
+  const agent = resolveAgent(repl.session.agent, repl.runtime.config)
+  const goal = repl.runtime.goals.create({ title: args, model, cwd: repl.session.cwd })
+  process.stdout.write(`goal ${goal.id} 已创建，开始执行...\n`)
+  const { executeGoal, formatGoalReport } = await import("../goal/loop")
+  await executeGoal({ runtime: repl.runtime, goal, agent, model, sink: new StreamRenderer(model) })
+  process.stdout.write("\n" + formatGoalReport(goal) + "\n")
+  return undefined
+})
+
 registerSlash("compact", () => "上下文压缩将在后续功能提交中实现。")
 registerSlash("cost", () => "费用统计将在后续功能提交中实现。")
+registerSlash("review", async (args, repl) => {
+  const model = repl.model()
+  if (!model) return "未配置模型。"
+  process.stdout.write("运行玄鉴审查流水线...\n")
+  const { runReview } = await import("../review/pipeline")
+  const output = await runReview({ todo: args, cwd: repl.session.cwd, config: repl.runtime.config, model, noAutoCommit: false })
+  return output.report || "无变更或无匹配审查员。"
+})
 registerSlash("state", (_, repl) => {
   const count = repl.runtime.store.listMessages(repl.session.id).length
   return `会话 ${repl.session.id} · 工作目录 ${repl.session.cwd} · 消息数 ${count}`

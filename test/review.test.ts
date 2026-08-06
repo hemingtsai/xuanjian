@@ -37,7 +37,7 @@ test("formatReport renders summary", () => {
   expect(report).toContain("1 个问题")
 })
 
-test("collectDiff in a git repo", () => {
+test("collectDiff in a git repo", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "xj-review-"))
   spawnSync("git", ["init", "-q"], { cwd: dir })
   spawnSync("git", ["config", "user.email", "t@t"], { cwd: dir })

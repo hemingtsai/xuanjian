@@ -6,19 +6,43 @@ import { runAgentTurn } from "../core/agent-loop"
 import { StreamRenderer } from "./render"
 import { toolSubject } from "../core/permission"
 import type { PermissionRequest } from "../core/permission"
+import { executeGoal, formatGoalReport } from "../goal/loop"
 
 export async function runTask(message: string, options: Options, goal: string | undefined): Promise<number> {
-  if (goal) {
-    process.stdout.write(`goal 模式 "${goal}" 将在后续功能提交中实现。\n`)
-    return 2
-  }
-  if (!message) {
-    process.stderr.write("run 需要任务文本，例如: xuanjian run \"修复登录 bug\"\n")
+  if (!message && !goal) {
+    process.stderr.write("run 需要任务文本，例如: xuanjian run \"修复登录 bug\"，或 --goal \"目标\"\n")
     return 2
   }
 
   const cwd = options.directory ? path.resolve(process.cwd(), options.directory) : process.cwd()
-  const runtime = await createRuntime({ yes: options.yes })
+  const runtime = await createRuntime({ yes: options.yes, cwd })
+
+  if (goal) {
+    const model = options.model ?? runtime.config.model
+    if (!model) {
+      process.stderr.write("未配置模型。请在 ~/.config/xuanjian.lua 设置 model，或使用 --model 指定。\n")
+      runtime.store.close()
+      return 2
+    }
+    const agent = resolveAgent(options.agent, runtime.config)
+    const goalObj = runtime.goals.create({ title: goal, model, cwd })
+    const renderer = new StreamRenderer(model)
+    try {
+      await executeGoal({
+        runtime,
+        goal: goalObj,
+        agent,
+        model,
+        sink: renderer,
+        askPermission: !process.stdout.isTTY ? async () => (options.yes ? "allow" : undefined) : undefined,
+      })
+      process.stdout.write("\n" + formatGoalReport(goalObj) + "\n")
+      return goalObj.status === "done" ? 0 : 2
+    } finally {
+      runtime.store.close()
+    }
+  }
+
   let session =
     (options.sessionId ? runtime.sessions.load(options.sessionId) : undefined) ??
     (options.continueSession ? runtime.sessions.resumeLatest() : undefined)
@@ -56,6 +80,12 @@ export async function runTask(message: string, options: Options, goal: string | 
         : undefined,
     })
     if (nonInteractive && result.text) process.stdout.write(result.text.endsWith("\n") ? "" : "\n")
+    if (options.review) {
+      const { runReview } = await import("../review/pipeline")
+      process.stdout.write("\n运行玄鉴审查流水线...\n")
+      const output = await runReview({ todo: message, cwd, config: runtime.config, model })
+      if (output.report) process.stdout.write(output.report + "\n")
+    }
     return 0
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

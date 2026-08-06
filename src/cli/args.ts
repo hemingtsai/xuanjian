@@ -19,6 +19,7 @@ export interface Options {
   sessionId?: string
   continueSession: boolean
   yes: boolean
+  review: boolean
   help: boolean
 }
 
@@ -37,14 +38,13 @@ function takeValue(
 }
 
 export function parseArgs(argv: string[]): { command: Command; options: Options } {
-  const options: Options = { continueSession: false, yes: false, help: false }
+  const options: Options = { continueSession: false, yes: false, review: false, help: false }
 
   const positionals: string[] = []
   let i = 0
   let command = "repl"
   let runMessage = ""
   let runGoal: string | undefined
-  let runReview = false
   let configSub = "init"
   let configKey: string | undefined
   let configValue: string | undefined
@@ -118,7 +118,7 @@ export function parseArgs(argv: string[]): { command: Command; options: Options 
         ;({ value: runGoal, next: i } = takeValue(argv, i, inline, "goal"))
         break
       case "review":
-        runReview = true
+        options.review = true
         break
       case "no-auto-commit":
         reviewNoAutoCommit = true
@@ -153,7 +153,7 @@ export function parseArgs(argv: string[]): { command: Command; options: Options 
       finalCommand = { kind: "repl" }
       break
     case "run":
-      finalCommand = { kind: "run", message: runMessage, goal: runGoal, review: runReview }
+      finalCommand = { kind: "run", message: runMessage, goal: runGoal, review: options.review }
       break
     case "config":
       finalCommand = { kind: "config", sub: configSub as "init" | "path" | "get" | "set", key: configKey, value: configValue }
