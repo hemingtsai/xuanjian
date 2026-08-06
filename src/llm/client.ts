@@ -52,3 +52,12 @@ export async function* complete(model: string, params: Omit<CompleteParams, "mod
   const adapter = getAdapter(resolved.type)
   yield* adapter.complete({ ...params, model: modelID, baseUrl: resolved.baseUrl, apiKey: resolved.apiKey, extra: resolved.extra })
 }
+
+export async function generateText(model: string, input: { system: string; prompt: string; signal?: AbortSignal }, config: Config): Promise<string> {
+  const parts: string[] = []
+  for await (const event of complete(model, { system: input.system, messages: [{ role: "user", content: input.prompt }], signal: input.signal }, config)) {
+    if (event.type === "text") parts.push(event.text)
+    else if (event.type === "error") throw new Error(event.message)
+  }
+  return parts.join("")
+}

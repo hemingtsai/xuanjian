@@ -6,6 +6,8 @@ import { loadConfig, getByPath } from "./config/loader"
 import { setOverride } from "./config/overrides"
 import { configFilePath, ensureConfigDir } from "./config/paths"
 import { listModels, listProviders } from "./llm/catalog"
+import { runReview } from "./review/pipeline"
+import { resolveAgent } from "./core/agent"
 
 const VERSION = "0.1.0"
 
@@ -152,6 +154,22 @@ async function main(): Promise<void> {
       for (const p of listProviders(config)) {
         process.stdout.write(`${p.id}  [${p.type}]` + (p.custom ? "  (自定义)" : "") + `  ${p.models} 模型\n`)
       }
+      return
+    }
+    case "review": {
+      const config = await loadConfig()
+      const agent = resolveAgent(config.default_agent, config)
+      const model = options.model ?? config.model ?? agent.model
+      if (!model) {
+        process.stderr.write("未配置模型。\n")
+        process.exitCode = 2
+        return
+      }
+      const cwd = options.directory ? await import("node:path").then((p) => p.resolve(process.cwd(), options.directory!)) : process.cwd()
+      process.stdout.write("运行玄鉴审查流水线...\n")
+      const output = await runReview({ todo: command.todo ?? "", cwd, config, model, noAutoCommit: command.noAutoCommit })
+      if (output.report) process.stdout.write(output.report + "\n")
+      else process.stdout.write("无变更或无匹配审查员。\n")
       return
     }
     default:
