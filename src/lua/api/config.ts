@@ -1,8 +1,6 @@
 import { getByPath, setByPath } from "../../config/loader"
-import { readOverrides, writeOverrides } from "../../config/overrides"
+import { setOverride } from "../../config/overrides"
 import { getLuaContext, requireLuaContext } from "./context"
-
-let chain: Promise<void> = Promise.resolve()
 
 export function get(key: string): unknown {
   const ctx = getLuaContext()
@@ -21,15 +19,10 @@ export function set(key: string, value: unknown): void {
   if (ctx) {
     setByPath(ctx.config as unknown as Record<string, unknown>, key, value)
   }
-  chain = chain.then(async () => {
-    try {
-      const overrides = await readOverrides()
-      setByPath(overrides, key, value)
-      await writeOverrides(overrides)
-    } catch (err) {
-      requireLuaContext()
-      console.error("[x.config.set] 写入 overrides 失败:", err)
-    }
+  // 与 CLI/TUI 的 setOverride 共用同一串行 chain，避免并发丢更新
+  setOverride(key, value).catch((err) => {
+    requireLuaContext()
+    console.error("[x.config.set] 写入 overrides 失败:", err)
   })
 }
 

@@ -58,8 +58,20 @@ export async function writeOverrides(overrides: Record<string, unknown>): Promis
   fs.writeFileSync(file, content)
 }
 
+// 所有 overrides 写入统一串行化（读-改-写整个文件，并发会丢更新）
+let chain: Promise<void> = Promise.resolve()
+
 export async function setOverride(key: string, value: unknown): Promise<void> {
-  const overrides = await readOverrides()
-  setByPath(overrides, key, value)
-  await writeOverrides(overrides)
+  const task = chain.then(async () => {
+    const overrides = await readOverrides()
+    setByPath(overrides, key, value)
+    await writeOverrides(overrides)
+  })
+  chain = task.catch(() => {})
+  await task
+}
+
+/** 等待所有待写入的 overrides 落盘（退出前调用） */
+export function flushOverrides(): Promise<void> {
+  return chain
 }

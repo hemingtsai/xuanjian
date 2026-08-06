@@ -123,3 +123,16 @@ test("x.goal.create via Lua API", async () => {
   expect(goal?.title).toBe("测试目标")
   runtime.store.close()
 })
+
+test("并发 setOverride 不丢更新（串行化）", async () => {
+  const { setOverride, readOverrides } = await import("../src/config/overrides")
+  await setOverride("__t1", "a")
+  // 并发写两个键，串行后都应保留
+  await Promise.all([setOverride("__t2", "b"), setOverride("__t3", "c")])
+  const overrides = await readOverrides()
+  expect(overrides["__t1"]).toBe("a")
+  expect(overrides["__t2"]).toBe("b")
+  expect(overrides["__t3"]).toBe("c")
+  const { writeOverrides } = await import("../src/config/overrides")
+  await writeOverrides({})
+})

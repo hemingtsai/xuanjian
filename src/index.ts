@@ -12,6 +12,7 @@ import { resolveAgent } from "./core/agent"
 import { createRuntime } from "./core/runtime"
 import { executeGoal, formatGoalReport } from "./goal/loop"
 import { runDoctor } from "./cli/doctor"
+import { flushOverrides } from "./config/overrides"
 
 const VERSION = "0.1.0"
 
@@ -227,6 +228,7 @@ async function main(): Promise<void> {
           process.stdout.write(`goal 已中止: ${id}\n`)
         }
       } finally {
+        await flushOverrides()
         runtime.store.close()
       }
       return

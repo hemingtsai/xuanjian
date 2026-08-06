@@ -7,6 +7,7 @@ import { StreamRenderer } from "./render"
 import { toolSubject } from "../core/permission"
 import type { PermissionRequest } from "../core/permission"
 import { executeGoal, formatGoalReport } from "../goal/loop"
+import { flushOverrides } from "../config/overrides"
 
 export async function runTask(message: string, options: Options, goal: string | undefined): Promise<number> {
   if (!message && !goal) {
@@ -92,6 +93,7 @@ export async function runTask(message: string, options: Options, goal: string | 
     process.stderr.write(`Error: ${message}\n`)
     return 1
   } finally {
+    await flushOverrides()
     runtime.store.close()
   }
 }

@@ -8,6 +8,7 @@ import { resolveAgent } from "../core/agent"
 import { registerSlash } from "../core/slash"
 import { executeGoal, formatGoalReport } from "../goal/loop"
 import { runReview } from "../review/pipeline"
+import { flushOverrides } from "../config/overrides"
 import { App } from "./App"
 import { TuiController } from "./controller"
 
@@ -39,10 +40,10 @@ export async function runTui(options: Options): Promise<void> {
 
 function exit(renderer: import("@opentui/core").CliRenderer, runtime: import("../core/runtime").Runtime): void {
   renderer.destroy()
-  setTimeout(() => {
+  Promise.all([flushOverrides(), new Promise((r) => setTimeout(r, 30))]).then(() => {
     runtime.store.close()
     process.exit(0)
-  }, 30)
+  })
 }
 
 function registerTuiSlash(controller: TuiController): void {
