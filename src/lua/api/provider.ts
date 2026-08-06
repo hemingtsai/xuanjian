@@ -1,5 +1,5 @@
 import type { ProviderEntry } from "../../config/schema"
-import { getLuaContext, bufferProvider } from "./context"
+import { liveContext, getLuaContext, bufferProvider } from "./context"
 
 export interface LuaProviderDef {
   id: string
@@ -19,7 +19,7 @@ export function register(def: LuaProviderDef): void {
     default_model: def.default_model,
     models: def.models,
   }
-  const ctx = getLuaContext()
+  const ctx = liveContext()
   if (ctx) {
     ctx.config.provider[def.id] = entry
   } else {

@@ -98,3 +98,66 @@ test("TuiController 历史记录", async () => {
 
   runtime.store.close()
 })
+
+test("TUI onboarding: 无 model 且无凭据时显示引导栏", async () => {
+  const runtime = await createRuntime({ config })
+  const session = runtime.sessions.create({ cwd: "/tmp" })
+  const controller = new TuiController(runtime, session)
+
+  const { renderer, renderOnce, captureCharFrame } = await testRender(() => <App controller={controller} />, {
+    width: 60,
+    height: 12,
+  })
+  await renderOnce()
+
+  const frame = captureCharFrame()
+  expect(frame).toContain("尚未连接任何 provider")
+
+  runtime.store.close()
+})
+
+test("TuiController select 模态 + 连接向导流程", async () => {
+  const runtime = await createRuntime({ config })
+  const session = runtime.sessions.create({ cwd: "/tmp" })
+  const controller = new TuiController(runtime, session)
+
+  expect(controller.needsOnboarding()).toBe(true)
+
+  const promise = controller.selectFromList("选 provider", [
+    { name: "anthropic", description: "Claude 系列", value: "anthropic" },
+    { name: "openai", description: "GPT 系列", value: "openai" },
+  ])
+  const modal = controller.modal()
+  expect(modal?.kind).toBe("select")
+  controller.resolveModal("anthropic")
+  const selected = await promise
+  expect(selected).toBe("anthropic")
+  expect(controller.modal()).toBeNull()
+
+  runtime.store.close()
+})
+
+test("openAuthWizard: 选 provider → 输 key → 保存凭据并设模型", async () => {
+  const runtime = await createRuntime({ config })
+  const session = runtime.sessions.create({ cwd: "/tmp" })
+  const controller = new TuiController(runtime, session)
+
+  const wizard = controller.openAuthWizard()
+  await new Promise((r) => setTimeout(r, 0))
+  expect(controller.modal()?.kind).toBe("select")
+
+  controller.resolveModal("anthropic")
+  await new Promise((r) => setTimeout(r, 0))
+  expect(controller.modal()?.kind).toBe("ask")
+
+  controller.resolveModal("sk-ant-unit-test")
+  await wizard
+
+  const { hasApiKey } = await import("../src/config/credentials")
+  expect(hasApiKey("anthropic")).toBe(true)
+  expect(controller.runtime.config.model).toBe("anthropic/claude-sonnet-4-5")
+
+  const { deleteCredential } = await import("../src/config/credentials")
+  deleteCredential("anthropic")
+  runtime.store.close()
+})

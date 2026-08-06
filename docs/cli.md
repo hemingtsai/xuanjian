@@ -50,6 +50,20 @@ xuanjian providers list              # 列出可用 provider
 xuanjian providers list <id>         # 列出某 provider 的模型
 ```
 
+### `xuanjian auth`
+Provider 连接引导（类似 opencode 的 onboarding）。
+
+```
+xuanjian auth login                 # 交互式向导：选 provider → 输 API key → 保存
+xuanjian auth login anthropic       # 直接连接指定 provider
+xuanjian auth list                  # 连接状态（✓ / env / —）
+xuanjian auth logout anthropic      # 断开并删除凭据
+```
+
+- API key 保存在 `~/.local/share/xuanjian/credentials.json`（0600 权限），也可用环境变量（`provider.api_key_env` 或默认 `ANTHROPIC_API_KEY` 等）。
+- 首次连接未设置模型时，自动把默认模型写入 overrides。
+- OpenAI 兼容自定义 provider 会额外询问 Base URL。
+
 ### `xuanjian review [options] ["<todo>"]`
 审查当前 git diff。可选 todo 描述作为上下文。
 
@@ -108,6 +122,8 @@ xuanjian lsp debug                   # 打印语言服务器映射与运行状�
 
 **状态栏字段**：模型（provider/model）、agent、模式（build/plan/goal）、工作区（cwd basename）、LSP（活跃语言服务器 `ts✓ py✗`）、DAP（调试器状态，v1 为 `off`）、ctx（估算 token ÷ 模型上下文窗口）。
 
+**Provider 连接引导**：未配置模型且无任何 provider 凭据时，输入框上方显示 `🔑 尚未连接任何 provider` 引导条。按 `C-o` 或输入 `/auth` 打开连接向导（provider 选择 → API key 输入 → 保存并设默认模型）。
+
 **键位**：
 
 | 键 | 行为 |
@@ -119,6 +135,7 @@ xuanjian lsp debug                   # 打印语言服务器映射与运行状�
 | `Ctrl-C` | 回合中=中断；modal 中=取消；空闲=退出 |
 | `Ctrl-L` | 清空输出 |
 | `Ctrl-D` | 退出 |
+| `Ctrl-O` | 打开 provider 连接向导（onboarding） |
 
 **权限 modal**：`y` 允许 / `n` 拒绝 / `a` 本次会话 / `s` 总是允许。
 

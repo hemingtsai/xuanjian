@@ -1,4 +1,4 @@
-import { getLuaContext, bufferReviewer, requireLuaContext } from "./context"
+import { liveContext, bufferReviewer, requireLuaContext } from "./context"
 import { runReview } from "../../review/pipeline"
 import type { ReviewerConfig } from "../../config/schema"
 
@@ -19,7 +19,7 @@ export function registerReviewer(def: LuaReviewerDef): void {
     prompt: def.prompt,
     triggers: def.triggers ?? [],
   }
-  const ctx = getLuaContext()
+  const ctx = liveContext()
   if (ctx) {
     ctx.config.review.reviewers = [...(ctx.config.review.reviewers ?? []).filter((r) => r.name !== def.name), entry]
   } else {

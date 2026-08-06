@@ -6,6 +6,7 @@ import { loadConfig, getByPath } from "./config/loader"
 import { setOverride } from "./config/overrides"
 import { configFilePath, ensureConfigDir } from "./config/paths"
 import { listModels, listProviders } from "./llm/catalog"
+import { authLogin, authLogout, authList } from "./cli/auth"
 import { runReview } from "./review/pipeline"
 import { resolveAgent } from "./core/agent"
 import { createRuntime } from "./core/runtime"
@@ -156,6 +157,17 @@ async function main(): Promise<void> {
       }
       for (const p of listProviders(config)) {
         process.stdout.write(`${p.id}  [${p.type}]` + (p.custom ? "  (自定义)" : "") + `  ${p.models} 模型\n`)
+      }
+      return
+    }
+    case "auth": {
+      const config = await loadConfig()
+      if (command.sub === "login") {
+        process.exitCode = await authLogin(config, command.id)
+      } else if (command.sub === "logout") {
+        process.exitCode = authLogout(command.id ?? "")
+      } else {
+        process.exitCode = authList(config)
       }
       return
     }

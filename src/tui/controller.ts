@@ -10,10 +10,13 @@ import { toolSubject } from "../core/permission"
 import { getSlashHandler } from "../core/slash"
 import { TuiOutput, createTuiSink } from "./parts"
 import { buildStatus, type StatusInfo } from "./status"
+import { loginTargets } from "../cli/auth"
+import { hasApiKey } from "../config/credentials"
 
 export type TuiModal =
   | { kind: "permission"; text: string; resolve: (v: PermissionAnswer) => void }
   | { kind: "ask"; text: string; resolve: (v: string | undefined) => void }
+  | { kind: "select"; title: string; options: { name: string; description: string; value: string }[]; resolve: (v: string | undefined) => void }
 
 export class TuiController {
   readonly out: TuiOutput
@@ -130,6 +133,54 @@ export class TuiController {
     return new Promise<string | undefined>((resolve) => {
       this.setModal({ kind: "ask", text: question, resolve })
     })
+  }
+
+  selectFromList(title: string, options: { name: string; description: string; value: string }[]): Promise<string | undefined> {
+    if (this.modal()) return Promise.resolve(undefined)
+    return new Promise<string | undefined>((resolve) => {
+      this.setModal({ kind: "select", title, options, resolve })
+    })
+  }
+
+  needsOnboarding(): boolean {
+    if (this.runtime.config.model) return false
+    return !loginTargets(this.runtime.config).some((t) => {
+      if (t.apiKeyEnv && process.env[t.apiKeyEnv]) return true
+      return hasApiKey(t.id)
+    })
+  }
+
+  async openAuthWizard(): Promise<void> {
+    const { loginTargets } = await import("../cli/auth")
+    const { hasApiKey } = await import("../config/credentials")
+    const targets = loginTargets(this.runtime.config)
+    const connected = new Set(targets.filter((t) => hasApiKey(t.id)).map((t) => t.id))
+    const providerId = await this.selectFromList(
+      "选择要连接的 provider",
+      targets.map((t) => ({
+        name: t.id + (connected.has(t.id) ? " ✓" : ""),
+        description: t.label,
+        value: t.id,
+      })),
+    )
+    if (!providerId) return
+    const target = targets.find((t) => t.id === providerId)
+    if (!target) return
+    const apiKey = await this.askUser(`输入 ${providerId} 的 API key：`)
+    if (!apiKey || !apiKey.trim()) {
+      this.out.push({ type: "system", text: `已取消连接 ${providerId}` })
+      return
+    }
+    const { setCredential } = await import("../config/credentials")
+    setCredential(providerId, { apiKey: apiKey.trim() })
+    this.out.push({ type: "system", text: `✓ 已连接 ${providerId}` })
+    if (!this.runtime.config.model && target.defaultModel) {
+      const { setOverride } = await import("../config/overrides")
+      await setOverride("model", target.defaultModel)
+      this.runtime.config.model = target.defaultModel
+      this.out.push({ type: "system", text: `默认模型已设为 ${target.defaultModel}` })
+    }
+    this.refreshStatus()
   }
 
   resolveModal(value: unknown): void {

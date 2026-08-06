@@ -22,6 +22,20 @@ export interface LuaContext {
 }
 
 let ctx: LuaContext | undefined
+let configLoading = false
+
+/** 配置脚本加载期间：x 注册一律走缓冲，避免写入旧 runtime */
+export function beginConfigLoad(): void {
+  configLoading = true
+}
+
+export function endConfigLoad(): void {
+  configLoading = false
+}
+
+export function isConfigLoading(): boolean {
+  return configLoading
+}
 
 export function setLuaContext(context: LuaContext | undefined): void {
   ctx = context
@@ -30,6 +44,11 @@ export function setLuaContext(context: LuaContext | undefined): void {
 
 export function getLuaContext(): LuaContext | undefined {
   return ctx
+}
+
+/** 注册路径用：配置加载期强制返回 undefined（走缓冲） */
+export function liveContext(): LuaContext | undefined {
+  return configLoading ? undefined : ctx
 }
 
 export function requireLuaContext(): LuaContext {

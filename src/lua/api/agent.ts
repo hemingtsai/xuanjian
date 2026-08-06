@@ -1,5 +1,5 @@
 import type { AgentConfig } from "../../config/schema"
-import { getLuaContext, bufferAgent } from "./context"
+import { liveContext, getLuaContext, bufferAgent } from "./context"
 
 export interface LuaAgentDef {
   id: string
@@ -21,7 +21,7 @@ export function register(def: LuaAgentDef): void {
     tools: def.tools,
     subagent: def.subagent,
   }
-  const ctx = getLuaContext()
+  const ctx = liveContext()
   if (ctx) {
     ctx.config.agents[def.id] = entry
   } else {

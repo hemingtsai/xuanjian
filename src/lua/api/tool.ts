@@ -1,6 +1,6 @@
 import type { ToolDef } from "../../tools/registry"
 import type { JSONSchema7 } from "../../llm/schema-json"
-import { getLuaContext, bufferTool, requireLuaContext } from "./context"
+import { liveContext, getLuaContext, bufferTool, requireLuaContext } from "./context"
 
 export interface LuaToolDef {
   name: string
@@ -30,7 +30,7 @@ export function register(def: LuaToolDef): void {
       return { title: def.name, output: String(result ?? "") }
     },
   }
-  const ctx = getLuaContext()
+  const ctx = liveContext()
   if (ctx) {
     ctx.registry.registerOrReplace(tool)
   } else {

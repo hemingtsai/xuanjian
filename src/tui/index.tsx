@@ -55,6 +55,7 @@ function registerTuiSlash(controller: TuiController): void {
       "/help         帮助",
       "/model [id]   查看/切换模型",
       "/agent [id]   查看/切换 agent",
+      "/auth [id]    连接 provider（C-o 打开向导）",
       "/goal \"目标\"  创建并执行 goal",
       "/review [todo] 触发审查流水线",
       "/compact      压缩上下文",
@@ -70,6 +71,19 @@ function registerTuiSlash(controller: TuiController): void {
     session.setModel(args)
     controller.refreshStatus()
     return `已切换模型: ${args}`
+  })
+
+  registerSlash("auth", async (args) => {
+    if (args) {
+      const { authLogin } = await import("../cli/auth")
+      const { loadConfig } = await import("../config/loader")
+      const config = await loadConfig()
+      const code = await authLogin(config, args)
+      controller.refreshStatus()
+      return code === 0 ? `✓ 已连接 ${args}` : `连接 ${args} 失败`
+    }
+    void controller.openAuthWizard()
+    return undefined
   })
 
   registerSlash("agent", (args) => {

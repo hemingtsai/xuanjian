@@ -23,6 +23,11 @@ export function App(props: { controller: TuiController }): JSX.Element {
       e.preventDefault()
       return
     }
+    if (e.ctrl && e.name === "o") {
+      if (!controller.modal()) void controller.openAuthWizard()
+      e.preventDefault()
+      return
+    }
     if (e.name === "pageup" && scrollRef) {
       scrollRef.scrollTop = Math.max(0, scrollRef.scrollTop - 5)
       e.preventDefault()
@@ -70,7 +75,13 @@ export function App(props: { controller: TuiController }): JSX.Element {
       </scrollbox>
 
       {controller.modal() ? (
-        <ModalView controller={controller} text={controller.modal()!.text} kind={controller.modal()!.kind} />
+        <ModalView controller={controller} modal={controller.modal()!} />
+      ) : null}
+
+      {controller.needsOnboarding() ? (
+        <box flexShrink={0} paddingX={1} backgroundColor="#3b2f2f">
+          <text fg="#fbbf24">🔑 尚未连接任何 provider — 按 C-o 或输入 /auth 连接</text>
+        </box>
       ) : null}
 
       <box flexShrink={0} paddingX={1}>
@@ -179,14 +190,35 @@ export function PartView(props: { part: OutputPart }): JSX.Element {
   }
 }
 
-function ModalView(props: { controller: TuiController; text: string; kind: "permission" | "ask" }): JSX.Element {
+function ModalView(props: { controller: TuiController; modal: { kind: string } & Record<string, unknown> }): JSX.Element {
+  const modal = props.modal
+  if (modal.kind === "select") {
+    const options = (modal.options as { name: string; description: string; value: string }[]) ?? []
+    const selectHeight = options.length * 2
+    const boxHeight = Math.min(selectHeight + 4, 16)
+    return (
+      <box flexShrink={0} width="100%" paddingX={1} backgroundColor="#1e293b" borderStyle="rounded" borderColor="#475569" flexDirection="column" height={boxHeight}>
+        <text fg="#fde047">◈ {String(modal.title)}（↑↓ 选择 · Enter 确认 · Esc/Ctrl-C 取消）</text>
+        <select
+          flexGrow={1}
+          width="100%"
+          height={selectHeight}
+          focused
+          options={options}
+          showDescription
+          showSelectionIndicator
+          onSelect={(_, opt) => props.controller.resolveModal(opt?.value)}
+        />
+      </box>
+    )
+  }
+  const isPermission = modal.kind === "permission"
   const [value, setValue] = createSignal("")
-  const isPermission = props.kind === "permission"
 
   return (
     <box flexShrink={0} paddingX={1} backgroundColor="#1e293b" borderStyle="rounded" borderColor="#475569">
       <box flexDirection="column">
-        <text fg="#fde047">⚠ {props.text}</text>
+        <text fg="#fde047">⚠ {String(modal.text)}</text>
         <input
           focused
           value={value()}
@@ -206,12 +238,12 @@ function ModalView(props: { controller: TuiController; text: string; kind: "perm
             }
           }}
           onSubmit={(v) => {
-            const value = typeof v === "string" ? v : ""
+            const valueStr = typeof v === "string" ? v : ""
             if (isPermission) {
-              const a = value.toLowerCase()
+              const a = valueStr.toLowerCase()
               props.controller.resolveModal(a === "y" ? "allow" : a === "n" ? "deny" : a === "a" ? "session" : a === "s" ? "always" : "deny")
             } else {
-              props.controller.resolveModal(value)
+              props.controller.resolveModal(valueStr)
             }
           }}
           placeholder={isPermission ? "y=允许 n=拒绝 a=会话 s=总是" : "回答（Enter 提交）"}

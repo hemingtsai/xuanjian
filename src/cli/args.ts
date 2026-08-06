@@ -3,6 +3,7 @@ export type Command =
   | { kind: "run"; message: string; goal: string | undefined; review: boolean }
   | { kind: "config"; sub: "init" | "path" | "get" | "set"; key: string | undefined; value: string | undefined }
   | { kind: "providers"; id: string | undefined }
+  | { kind: "auth"; sub: "login" | "logout" | "list"; id: string | undefined }
   | { kind: "review"; todo: string | undefined; noAutoCommit: boolean }
   | { kind: "goals"; sub: "list" | "status" | "resume" | "abort"; id: string | undefined }
   | { kind: "plugins" }
@@ -49,6 +50,8 @@ export function parseArgs(argv: string[]): { command: Command; options: Options 
   let configKey: string | undefined
   let configValue: string | undefined
   let providersId: string | undefined
+  let authSub: "login" | "logout" | "list" = "list"
+  let authId: string | undefined
   let reviewTodo: string | undefined
   let reviewNoAutoCommit = false
   let goalsSub = "list"
@@ -138,6 +141,9 @@ export function parseArgs(argv: string[]): { command: Command; options: Options 
     }
   } else if (command === "providers") {
     providersId = positionals[0] === "list" || positionals[0] === "ls" ? positionals[1] : positionals[0]
+  } else if (command === "auth") {
+    authSub = (positionals[0] === "login" || positionals[0] === "logout" || positionals[0] === "list" ? positionals[0] : "list") as "login" | "logout" | "list"
+    authId = positionals[1]
   } else if (command === "review") {
     reviewTodo = positionals[0]
   } else if (command === "goals") {
@@ -160,6 +166,9 @@ export function parseArgs(argv: string[]): { command: Command; options: Options 
       break
     case "providers":
       finalCommand = { kind: "providers", id: providersId }
+      break
+    case "auth":
+      finalCommand = { kind: "auth", sub: authSub, id: authId }
       break
     case "review":
       finalCommand = { kind: "review", todo: reviewTodo, noAutoCommit: reviewNoAutoCommit }

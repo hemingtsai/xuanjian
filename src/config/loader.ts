@@ -1,5 +1,6 @@
 import fs from "node:fs"
 import { getLuaEngine } from "../lua/engine"
+import { beginConfigLoad, endConfigLoad } from "../lua/api/context"
 import { DEFAULTS } from "./defaults"
 import { configFilePath, overridesFilePath } from "./paths"
 import type { Config } from "./schema"
@@ -26,9 +27,14 @@ async function loadLuaTable(file: string): Promise<Record<string, unknown> | und
   if (!fs.existsSync(file)) return undefined
   const lua = await getLuaEngine()
   const source = fs.readFileSync(file, "utf8")
-  const result = await lua.doString(source)
-  if (isPlainObject(result)) return result
-  return undefined
+  beginConfigLoad()
+  try {
+    const result = await lua.doString(source)
+    if (isPlainObject(result)) return result
+    return undefined
+  } finally {
+    endConfigLoad()
+  }
 }
 
 export function getByPath(obj: unknown, path: string): unknown {

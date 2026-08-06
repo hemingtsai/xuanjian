@@ -1,5 +1,5 @@
 import type { ModelInfo } from "../../config/schema"
-import { getLuaContext, bufferModel } from "./context"
+import { liveContext, getLuaContext, bufferModel } from "./context"
 
 export interface LuaModelInfo {
   name?: string
@@ -8,7 +8,7 @@ export interface LuaModelInfo {
 
 export function register(providerID: string, modelID: string, info: LuaModelInfo): void {
   const entry: ModelInfo = { name: info.name, context: info.context }
-  const ctx = getLuaContext()
+  const ctx = liveContext()
   if (ctx) {
     const provider = ctx.config.provider[providerID]
     if (provider) {
