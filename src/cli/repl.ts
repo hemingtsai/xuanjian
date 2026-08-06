@@ -11,14 +11,7 @@ import type { PermissionAnswer } from "../core/agent-loop"
 import { StreamRenderer, statusLine } from "./render"
 import { toolSubject } from "../core/permission"
 import type { PermissionRequest } from "../core/permission"
-
-type SlashHandler = (args: string, repl: Repl) => string | Promise<string | void> | undefined
-
-const slashCommands = new Map<string, SlashHandler>()
-
-export function registerSlash(name: string, handler: SlashHandler): void {
-  slashCommands.set(name, handler)
-}
+import { getSlashHandler, registerSlash } from "../core/slash"
 
 export interface Repl {
   readonly runtime: Runtime
@@ -84,7 +77,7 @@ async function handleLine(rl: readline.Interface, repl: Repl, line: string): Pro
     const space = line.indexOf(" ")
     const name = space === -1 ? line.slice(1) : line.slice(1, space)
     const args = space === -1 ? "" : line.slice(space + 1).trim()
-    const handler = slashCommands.get(name)
+    const handler = getSlashHandler(name)
     if (!handler) {
       process.stdout.write(`未知斜杠命令 /${name}，输入 /help 查看。\n`)
       rl.prompt()
