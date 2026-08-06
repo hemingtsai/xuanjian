@@ -38,11 +38,11 @@ export async function runTui(options: Options): Promise<void> {
 }
 
 function exit(renderer: import("@opentui/core").CliRenderer, runtime: import("../core/runtime").Runtime): void {
-  renderer.stop()
+  renderer.destroy()
   setTimeout(() => {
     runtime.store.close()
     process.exit(0)
-  }, 50)
+  }, 30)
 }
 
 function registerTuiSlash(controller: TuiController): void {
