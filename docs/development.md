@@ -38,7 +38,7 @@ bunx oxlint                      # 若有 lint 配置
 
 ## 编码约定
 
-- **TypeScript strict**：`strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`。
+- **TypeScript strict**：`strict` + `noUncheckedIndexedAccess`。
 - **无注释代码**（除非必要）：文档在 docs/，不散落在代码中。
 - **类型优先**：`src/config/schema.ts`、`src/llm/llm.ts`（LLMEvent）、`src/tools/registry.ts`（ToolDef）为核心契约，改契约先改文档。
 - 模块边界：`lua/api` 不反向依赖 `cli`；`tools/registry` 不依赖 `cli`。禁止循环依赖。
