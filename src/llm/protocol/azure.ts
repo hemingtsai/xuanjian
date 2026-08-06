@@ -1,39 +1,24 @@
-import type { Adapter, CompleteParams, LLMEvent, LLMMessage } from "../llm"
+import type { Adapter, CompleteParams, LLMEvent } from "../llm"
 import { parseSSE } from "./sse"
+import { toOpenAIMessages } from "./openai-chat"
 
-export function toOpenAIMessages(messages: LLMMessage[]): unknown[] {
-  const out: unknown[] = []
-  for (const message of messages) {
-    if (message.role === "tool") {
-      out.push({ role: "tool", tool_call_id: message.toolCallId, content: message.content })
-      continue
-    }
-    if (message.role === "user") {
-      out.push({ role: "user", content: message.content })
-      continue
-    }
-    const msg: Record<string, unknown> = { role: "assistant", content: message.content }
-    if (message.toolCalls && message.toolCalls.length > 0) {
-      msg.tool_calls = message.toolCalls.map((tc) => ({
-        id: tc.id,
-        type: "function",
-        function: { name: tc.name, arguments: JSON.stringify(tc.args) },
-      }))
-    }
-    out.push(msg)
-  }
-  return out
-}
-
-export class OpenAICompatibleAdapter implements Adapter {
-  readonly type = "openai-compatible" as const
+export class AzureAdapter implements Adapter {
+  readonly type = "azure" as const
 
   async *complete(params: CompleteParams): AsyncIterable<LLMEvent> {
-    const baseUrl = params.baseUrl ?? "https://api.openai.com/v1"
-    const apiKey = params.apiKey ?? process.env.OPENAI_API_KEY
+    const resource = params.extra?.resource ?? process.env.AZURE_RESOURCE_NAME
+    const apiVersion = params.extra?.api_version ?? process.env.AZURE_API_VERSION ?? "2024-10-21"
+    const apiKey = params.apiKey ?? process.env.AZURE_API_KEY
+    if (!resource || !apiKey) {
+      yield { type: "error", message: "缺少 AZURE_RESOURCE_NAME / AZURE_API_KEY" }
+      return
+    }
+
+    const endpoint = params.baseUrl ?? `https://${resource}.openai.azure.com`
+    const deployment = params.model
+    const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`
 
     const body: Record<string, unknown> = {
-      model: params.model,
       messages: toOpenAIMessages(params.messages),
       stream: true,
     }
@@ -44,17 +29,12 @@ export class OpenAICompatibleAdapter implements Adapter {
         function: { name: t.name, description: t.description, parameters: t.parameters ?? { type: "object", properties: {} } },
       }))
     }
-    if (params.maxTokens !== undefined) body.max_tokens = params.maxTokens
-    if (params.temperature !== undefined) body.temperature = params.temperature
-
-    const headers: Record<string, string> = { "content-type": "application/json", ...params.extra }
-    if (apiKey) headers["authorization"] = `Bearer ${apiKey}`
 
     let response: Response
     try {
-      response = await fetch(`${baseUrl}/chat/completions`, {
+      response = await fetch(url, {
         method: "POST",
-        headers,
+        headers: { "content-type": "application/json", "api-key": apiKey },
         body: JSON.stringify(body),
         signal: params.signal,
       })
@@ -62,10 +42,9 @@ export class OpenAICompatibleAdapter implements Adapter {
       yield { type: "error", message: `请求失败: ${err instanceof Error ? err.message : String(err)}` }
       return
     }
-
     if (!response.ok) {
       const text = await response.text().catch(() => "")
-      yield { type: "error", message: `OpenAI API ${response.status}: ${text.slice(0, 500)}` }
+      yield { type: "error", message: `Azure API ${response.status}: ${text.slice(0, 500)}` }
       return
     }
 
@@ -84,13 +63,8 @@ export class OpenAICompatibleAdapter implements Adapter {
       }
       const choice = payload.choices?.[0]
       const delta = choice?.delta ?? {}
-      if (typeof delta.content === "string" && delta.content.length > 0) {
-        yield { type: "text", text: delta.content }
-      }
-      if (delta.reasoning_content && typeof delta.reasoning_content === "string") {
-        yield { type: "reasoning", text: delta.reasoning_content }
-      }
-      const toolCalls = delta.tool_calls as { index?: number; id?: string; function?: { name?: string; arguments?: string } }[] | undefined
+      if (typeof delta.content === "string" && delta.content.length > 0) yield { type: "text", text: delta.content }
+      const toolCalls = delta.tool_calls as { id?: string; function?: { name?: string; arguments?: string } }[] | undefined
       if (toolCalls) {
         for (const tc of toolCalls) {
           if (tc.id) toolAcc.id = tc.id
