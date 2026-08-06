@@ -244,11 +244,15 @@ export class TuiController {
     this.out.clear()
   }
 
-  switchWorkspace(cwd: string): void {
+  switchWorkspace(cwd: string): string {
+    if (this.session.messages().length > 0) {
+      return "当前会话非空，无法切换工作区（仅空会话可改）。\n可用 `xuanjian workspace <path>` 设置新会话默认工作区，或用 /session resume 恢复其他工作区的会话。"
+    }
     this.session.setCwd(cwd)
     this.runtime.lsp.shutdown()
     this.runtime.lsp = new LSPManager(this.runtime.config, cwd)
     this.refreshStatus()
+    return `已切换工作区: ${cwd}`
   }
 
   resumeSession(id: string): boolean {

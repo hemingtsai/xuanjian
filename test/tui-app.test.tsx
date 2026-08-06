@@ -161,3 +161,24 @@ test("openAuthWizard: 选 provider → 输 key → 保存凭据并设模型", as
   deleteCredential("anthropic")
   runtime.store.close()
 })
+
+test("switchWorkspace: 非空会话拒绝，空会话允许", async () => {
+  const runtime = await createRuntime({ config })
+  const session = runtime.sessions.create({ cwd: "/old" })
+  const controller = new TuiController(runtime, session)
+
+  // 非空会话 → 拒绝
+  session.addMessage({ role: "user", content: "任务" })
+  const denied = controller.switchWorkspace("/new")
+  expect(denied).toContain("无法切换工作区")
+  expect(session.cwd).toBe("/old")
+
+  // 空会话 → 允许
+  const empty = runtime.sessions.create({ cwd: "/old" })
+  const controller2 = new TuiController(runtime, empty)
+  const ok = controller2.switchWorkspace("/new")
+  expect(ok).toContain("已切换工作区")
+  expect(empty.cwd).toBe("/new")
+
+  runtime.store.close()
+})

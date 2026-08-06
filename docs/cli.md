@@ -47,8 +47,11 @@ xuanjian config init | path | get <key> | set <key> <value>
 
 ```
 xuanjian workspace                 # 查看当前工作区
-xuanjian workspace ~/my-project    # 切换工作区（后续 xuanjian/TUI 默认启动于此）
+xuanjian workspace ~/my-project    # 设置默认工作区（新会话生效）
 ```
+
+- CLI 命令设置**新会话的默认工作区**。
+- TUI 内 `/workspace <path>` 切换**当前会话**工作区——**仅空会话（无消息）可切换**，非空会话会拒绝并提示改用 `xuanjian workspace` 设默认或 `/session resume` 恢复其他会话。
 
 ### `xuanjian sessions`
 会话管理（按工作区列出 / 恢复 / 删除）。

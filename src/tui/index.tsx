@@ -86,8 +86,7 @@ function registerTuiSlash(controller: TuiController): void {
   registerSlash("workspace", (args) => {
     if (!args) return `当前工作区: ${session.cwd}`
     const cwd = path.isAbsolute(args) ? args : path.resolve(session.cwd, args)
-    controller.switchWorkspace(cwd)
-    return `已切换工作区: ${cwd}`
+    return controller.switchWorkspace(cwd)
   })
 
   registerSlash("sessions", () => controller.listSessionsText())
