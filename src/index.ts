@@ -1,5 +1,7 @@
 import { parseArgs } from "./cli/args"
 import { banner } from "./cli/banner"
+import { runRepl } from "./cli/repl"
+import { runTask } from "./cli/run"
 
 const VERSION = "0.1.0"
 
@@ -52,8 +54,10 @@ async function main(): Promise<void> {
       printHelp()
       return
     case "repl":
-      process.stdout.write(banner() + "\n\n")
-      process.stdout.write("交互模式尚未实现（下一功能提交）\n")
+      await runRepl(options)
+      return
+    case "run":
+      process.exitCode = await runTask(command.message, options, command.goal)
       return
     default:
       process.stdout.write(`命令 ${command.kind} 尚未实现（下一功能提交）\n`)
