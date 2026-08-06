@@ -2,6 +2,7 @@ import type { JSONSchema7 } from "./schema-json"
 
 export type AdapterType =
   | "anthropic"
+  | "anthropic-compatible"
   | "openai"
   | "openai-responses"
   | "gemini"

@@ -1,4 +1,4 @@
-import type { Adapter, CompleteParams, LLMEvent, LLMMessage, TextMessage, ToolCall } from "../llm"
+import type { Adapter, AdapterType, CompleteParams, LLMEvent, LLMMessage, TextMessage, ToolCall } from "../llm"
 import { parseSSE } from "./sse"
 
 const API_VERSION = "2023-06-01"
@@ -39,7 +39,11 @@ function toAnthropicMessages(messages: LLMMessage[]): unknown[] {
 }
 
 export class AnthropicAdapter implements Adapter {
-  readonly type = "anthropic" as const
+  readonly type: AdapterType
+
+  constructor(type: AdapterType = "anthropic") {
+    this.type = type
+  }
 
   async *complete(params: CompleteParams): AsyncIterable<LLMEvent> {
     const baseUrl = params.baseUrl ?? "https://api.anthropic.com/v1"

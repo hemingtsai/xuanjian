@@ -57,6 +57,81 @@ export const BUILTIN_PROVIDERS: CatalogProvider[] = [
     },
   },
   {
+    id: "deepseek",
+    type: "openai-compatible",
+    base_url: "https://api.deepseek.com/v1",
+    api_key_env: "DEEPSEEK_API_KEY",
+    default_model: "deepseek-chat",
+    default_models: {
+      "deepseek-chat": { name: "DeepSeek V3", context: 65536 },
+      "deepseek-reasoner": { name: "DeepSeek R1", context: 65536 },
+    },
+  },
+  {
+    id: "qwen",
+    type: "openai-compatible",
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    api_key_env: "DASHSCOPE_API_KEY",
+    default_model: "qwen3-coder-plus",
+    default_models: {
+      "qwen3-coder-plus": { name: "Qwen3 Coder Plus", context: 131072 },
+      "qwen3-plus": { name: "Qwen3 Plus", context: 131072 },
+      "qwen-max": { name: "Qwen Max", context: 32768 },
+    },
+  },
+  {
+    id: "zhipu",
+    type: "openai-compatible",
+    base_url: "https://open.bigmodel.cn/api/paas/v4",
+    api_key_env: "ZHIPU_API_KEY",
+    default_model: "glm-4-plus",
+    default_models: {
+      "glm-4-plus": { name: "GLM-4 Plus", context: 131072 },
+      "glm-4-flash": { name: "GLM-4 Flash", context: 131072 },
+    },
+  },
+  {
+    id: "moonshot",
+    type: "openai-compatible",
+    base_url: "https://api.moonshot.cn/v1",
+    api_key_env: "MOONSHOT_API_KEY",
+    default_model: "kimi-k2",
+    default_models: {
+      "kimi-k2": { name: "Kimi K2", context: 131072 },
+      "kimi-latest": { name: "Kimi Latest", context: 131072 },
+    },
+  },
+  {
+    id: "minimax",
+    type: "openai-compatible",
+    base_url: "https://api.minimax.chat/v1",
+    api_key_env: "MINIMAX_API_KEY",
+    default_model: "MiniMax-Text-01",
+    default_models: {
+      "MiniMax-Text-01": { name: "MiniMax Text 01", context: 1000000 },
+    },
+  },
+  {
+    id: "siliconflow",
+    type: "openai-compatible",
+    base_url: "https://api.siliconflow.cn/v1",
+    api_key_env: "SILICONFLOW_API_KEY",
+    default_model: "deepseek-ai/DeepSeek-V3",
+    default_models: {
+      "deepseek-ai/DeepSeek-V3": { name: "DeepSeek V3 (SiliconFlow)", context: 65536 },
+      "Qwen/Qwen3-Coder-32B-Instruct": { name: "Qwen3 Coder 32B", context: 131072 },
+    },
+  },
+  {
+    id: "ollama",
+    type: "openai-compatible",
+    base_url: "http://localhost:11434/v1",
+    default_models: {
+      "qwen2.5-coder:14b": { name: "Qwen2.5 Coder 14B (local)", context: 32768 },
+      "llama3.3:70b": { name: "Llama 3.3 70B (local)", context: 32768 },
+    },
+  },
+  {
     id: "openrouter",
     type: "openai",
     base_url: "https://openrouter.ai/api/v1",

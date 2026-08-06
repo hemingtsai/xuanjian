@@ -100,8 +100,8 @@ test("TuiController 历史记录", async () => {
 })
 
 test("TUI onboarding: 无 model 且无凭据时显示引导栏", async () => {
-  const { deleteCredential } = await import("../src/config/credentials")
-  deleteCredential("anthropic")
+  const { listCredentials, deleteCredential } = await import("../src/config/credentials")
+  for (const c of listCredentials()) deleteCredential(c.providerId)
   const runtime = await createRuntime({ config })
   const session = runtime.sessions.create({ cwd: "/tmp" })
   const controller = new TuiController(runtime, session)

@@ -24,6 +24,12 @@ const FALLBACK_ENV: Record<string, string> = {
   aws: "AWS_ACCESS_KEY_ID",
   "github-copilot": "GITHUB_COPILOT_TOKEN",
   cloudflare: "CLOUDFLARE_API_TOKEN",
+  deepseek: "DEEPSEEK_API_KEY",
+  qwen: "DASHSCOPE_API_KEY",
+  zhipu: "ZHIPU_API_KEY",
+  moonshot: "MOONSHOT_API_KEY",
+  minimax: "MINIMAX_API_KEY",
+  siliconflow: "SILICONFLOW_API_KEY",
 }
 
 function apiKeyFromEnv(envName: string | undefined, providerID: string): string | undefined {

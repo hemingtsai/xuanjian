@@ -1,5 +1,6 @@
 export type AdapterType =
   | "anthropic"
+  | "anthropic-compatible"
   | "openai"
   | "openai-responses"
   | "gemini"

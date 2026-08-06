@@ -7,6 +7,7 @@
 | 类型 | 协议 | 流式 | 备注 |
 |---|---|---|---|
 | `anthropic` | Anthropic Messages API | SSE | tool_use / input_json_delta |
+| `anthropic-compatible` | 同 `anthropic` | SSE | 任意 Anthropic 兼容端点（代理/网关） |
 | `openai` | OpenAI Chat Completions | SSE | `chat.completion.chunk` |
 | `openai-responses` | OpenAI Responses API | SSE | `response.output_text.delta` / function_call |
 | `gemini` | Google Gemini | SSE | `generateContent` stream |
@@ -26,6 +27,13 @@
 | `google` | gemini | `gemini-2.5-flash`, `gemini-2.5-pro` |
 | `xai` | openai-responses | `grok-4`, `grok-4-fast` |
 | `openrouter` | openai / openai-responses | `anthropic/claude-sonnet-4-5` 等聚合 |
+| `deepseek` | openai-compatible | `deepseek-chat` (V3), `deepseek-reasoner` (R1) |
+| `qwen` | openai-compatible | `qwen3-coder-plus`, `qwen3-plus`（阿里百炼） |
+| `zhipu` | openai-compatible | `glm-4-plus`, `glm-4-flash`（智谱） |
+| `moonshot` | openai-compatible | `kimi-k2`, `kimi-latest`（月之暗面） |
+| `minimax` | openai-compatible | `MiniMax-Text-01` |
+| `siliconflow` | openai-compatible | `deepseek-ai/DeepSeek-V3` 等（硅基流动） |
+| `ollama` | openai-compatible | `qwen2.5-coder:14b` 等（本地，无需 key） |
 | `azure` | azure | 按部署名 |
 | `aws` | bedrock | `anthropic.claude-sonnet-4-5` 等 |
 | `github-copilot` | copilot | 随订阅 |
@@ -44,6 +52,13 @@
 | google | `GEMINI_API_KEY` 或 `GOOGLE_API_KEY` |
 | xai | `XAI_API_KEY` |
 | openrouter | `OPENROUTER_API_KEY` |
+| deepseek | `DEEPSEEK_API_KEY` |
+| qwen | `DASHSCOPE_API_KEY` |
+| zhipu | `ZHIPU_API_KEY` |
+| moonshot | `MOONSHOT_API_KEY` |
+| minimax | `MINIMAX_API_KEY` |
+| siliconflow | `SILICONFLOW_API_KEY` |
+| ollama | —（本地无需 key） |
 | azure | `AZURE_API_KEY` + `AZURE_RESOURCE_NAME` + `AZURE_API_VERSION` |
 | aws | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`（或凭证链） |
 | github-copilot | Copilot 会话令牌（自动） |
@@ -68,7 +83,24 @@ provider = {
 }
 ```
 
-之后即可 `xuanjian run -m deepseek/deepseek-chat "..."`。
+之后即可 `xuanjian run -m deepseek/deepseek-chat "..."`。`deepseek`、`qwen`、`zhipu`、`moonshot`、`minimax`、`siliconflow`、`ollama` 已内置，仅需设置对应 API key 即可直接使用。
+
+## 接入 Anthropic 兼容服务
+
+任何兼容 Anthropic Messages API 的端点（自建网关、代理、Claude Code Router 等）用 `type = "anthropic-compatible"`：
+
+```lua
+provider = {
+  mygateway = {
+    type = "anthropic-compatible",
+    base_url = "https://my-gateway.example.com/v1",   -- 走 Anthropic 协议
+    api_key_env = "MY_GATEWAY_KEY",
+    default_model = "claude-sonnet-4-5",
+  },
+}
+```
+
+之后即可 `xuanjian run -m mygateway/claude-sonnet-4-5 "..."`。
 
 ## 本地模型（Ollama / LM Studio）
 

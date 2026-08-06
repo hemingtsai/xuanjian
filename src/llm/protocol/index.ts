@@ -21,7 +21,8 @@ export function getAdapter(type: AdapterType): Adapter {
   return adapter
 }
 
-registerAdapter(new AnthropicAdapter())
+registerAdapter(new AnthropicAdapter("anthropic"))
+registerAdapter(new AnthropicAdapter("anthropic-compatible"))
 registerAdapter(new OpenAICompatibleAdapter())
 registerAdapter(new OpenAIResponsesAdapter())
 registerAdapter(new GeminiAdapter())
