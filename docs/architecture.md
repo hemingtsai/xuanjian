@@ -28,7 +28,7 @@ src/
 │   ├── events.ts         # 类型化事件总线（JS 侧，Lua hooks 由 lua/api/hooks 桥接）
 │   └── context.ts        # 项目上下文组装与上下文压缩
 ├── config/
-│   ├── loader.ts         # 用 wasmoon 执行 ~/.config/xuanjian.lua，合并 overrides
+│   ├── loader.ts         # 用 wasmoon 执行 ~/.config/xuanjian/xuanjian.lua，合并 overrides
 │   ├── schema.ts         # TS 类型：Config / ProviderConfig / LspConfig / ...
 │   └── defaults.ts       # 默认配置
 ├── llm/
@@ -160,8 +160,8 @@ interface ExecuteResult { title: string; output: string; metadata? }
 ### 配置合并（`config/loader.ts`）
 
 ```
-~/.config/xuanjian.lua 返回值(Config)  ← 权威
-  ⊕ ~/.config/xuanjian.d/overrides.lua (x.config.set 自动生成, 浅层覆盖)
+~/.config/xuanjian/xuanjian.lua 返回值(Config)  ← 权威
+  ⊕ ~/.config/xuanjian/overrides.lua (x.config.set 自动生成, 浅层覆盖)
   ⊕ 默认值(defaults.ts)
 优先级: overrides > 用户配置 > 默认
 ```

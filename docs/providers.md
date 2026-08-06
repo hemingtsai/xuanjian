@@ -51,7 +51,7 @@
 
 ## 接入 OpenAI 兼容服务
 
-任何兼容 Chat Completions 的服务（DeepSeek、Moonshot、通义千问、智谱、MiniMax、硅基流动、Groq、Mistral、Together、Ollama、LM Studio、vLLM、TensorRT-LLM…）都可在 `~/.config/xuanjian.lua` 声明：
+任何兼容 Chat Completions 的服务（DeepSeek、Moonshot、通义千问、智谱、MiniMax、硅基流动、Groq、Mistral、Together、Ollama、LM Studio、vLLM、TensorRT-LLM…）都可在 `~/.config/xuanjian/xuanjian.lua` 声明：
 
 ```lua
 provider = {

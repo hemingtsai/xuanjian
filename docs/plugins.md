@@ -1,12 +1,12 @@
 # 插件开发指南 Plugins
 
-插件用 Lua 编写，通过 `~/.config/xuanjian.lua` 的 `plugins` 字段加载。API 全量参考见 docs/lua-api.md。
+插件用 Lua 编写，通过 `~/.config/xuanjian/xuanjian.lua` 的 `plugins` 字段加载。API 全量参考见 docs/lua-api.md。
 
 ## 目录约定
 
 | 来源 | 路径 | 配置方式 |
 |---|---|---|
-| 用户插件 | `~/.config/xuanjian.d/plugins/<name>.lua` | `plugins = { "name" }` |
+| 用户插件 | `~/.config/xuanjian/plugins/<name>.lua` | `plugins = { "name" }` |
 | 显式路径 | 任意绝对路径 | `plugins = { { path = "/abs/plugin.lua" } }` |
 | 项目本地 | `<cwd>/.xuanjian/plugins/<name>.lua` | 自动发现（可选） |
 
@@ -15,7 +15,7 @@
 ## 最小插件
 
 ```lua
--- ~/.config/xuanjian.d/plugins/hello.lua
+-- ~/.config/xuanjian/plugins/hello.lua
 x.log.info("hello plugin loaded")
 ```
 

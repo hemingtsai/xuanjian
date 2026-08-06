@@ -17,7 +17,7 @@ beforeAll(() => {
   dir = mkdtempSync(path.join(tmpdir(), "xj-plugin-"))
   configDir = path.join(dir, "config")
   dataDir = path.join(dir, "data")
-  fs.mkdirSync(path.join(configDir, "xuanjian.d", "plugins"), { recursive: true })
+  fs.mkdirSync(path.join(configDir, "xuanjian", "plugins"), { recursive: true })
   process.env.XDG_CONFIG_HOME = configDir
   process.env.XDG_DATA_HOME = dataDir
 })
@@ -32,7 +32,7 @@ afterAll(() => {
 
 test("config script registers tool + provider via x API, plugin loads", async () => {
   writeFileSync(
-    path.join(configDir, "xuanjian.lua"),
+    path.join(configDir, "xuanjian", "xuanjian.lua"),
     [
       `x.log.info("config loaded")`,
       `x.tool.register {`,
@@ -46,7 +46,7 @@ test("config script registers tool + provider via x API, plugin loads", async ()
     ].join("\n"),
   )
   writeFileSync(
-    path.join(configDir, "xuanjian.d", "plugins", "hello.lua"),
+    path.join(configDir, "xuanjian", "plugins", "hello.lua"),
     [
       `x.command.register("hello", function() return "hi" end)`,
       `x.hooks.on("config.loaded", function(payload) x.log.info("hook fired") end)`,

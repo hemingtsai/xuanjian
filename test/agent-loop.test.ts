@@ -43,9 +43,9 @@ test("agent loop: user → LLM → 持久化消息", async () => {
   mock = await startMockServer("mock")
   const configDir = path.join(dir, "config")
   const { mkdirSync } = await import("node:fs")
-  mkdirSync(configDir, { recursive: true })
+  mkdirSync(path.join(configDir, "xuanjian"), { recursive: true })
   writeFileSync(
-    path.join(configDir, "xuanjian.lua"),
+    path.join(configDir, "xuanjian", "xuanjian.lua"),
     `return { model = "mock/claude-sonnet-4-5", provider = { mock = { type = "anthropic", base_url = "http://localhost:${mock.port}/v1", api_key_env = "MOCK_KEY" } } }`,
   )
   const oldConfig = process.env.XDG_CONFIG_HOME

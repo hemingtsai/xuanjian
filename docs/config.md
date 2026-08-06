@@ -1,18 +1,18 @@
 # 配置 Config
 
-配置文件为 `~/.config/xuanjian.lua`（可用 `xuanjian config path` 查看实际路径；支持 `XDG_CONFIG_HOME`）。
+配置文件为 `~/.config/xuanjian/xuanjian.lua`（可用 `xuanjian config path` 查看实际路径；支持 `XDG_CONFIG_HOME`）。
 
 它是一个 **Lua 脚本**，**返回值即配置表**。加载顺序：
 
 1. wasmoon 引导，注入 `x` 全局
-2. 执行 `~/.config/xuanjian.lua`
+2. 执行 `~/.config/xuanjian/xuanjian.lua`
 3. 取脚本返回值作为配置
-4. 与 `~/.config/xuanjian.d/overrides.lua`（`x.config.set` 自动生成）**浅层合并**
+4. 与 `~/.config/xuanjian/overrides.lua`（`x.config.set` 自动生成）**浅层合并**
 5. 缺失字段用默认值补齐
 
 优先级：**overrides > 用户配置 > 默认值**。
 
-辅助目录 `~/.config/xuanjian.d/`：`plugins/`（插件）、`overrides.lua`（运行时覆盖，自动生成）。
+辅助目录 `~/.config/xuanjian/`：`plugins/`（插件）、`overrides.lua`（运行时覆盖，自动生成）。
 
 ## 完整字段参考
 
@@ -117,7 +117,7 @@ return {
   },
 
   -- ============ plugins ============
-  -- 字符串: 从 ~/.config/xuanjian.d/plugins/<name>.lua 加载
+  -- 字符串: 从 ~/.config/xuanjian/plugins/<name>.lua 加载
   -- 表:    { path = "/abs/path.lua" } 显式路径
   plugins = {
     "my-plugin",
@@ -168,7 +168,7 @@ return { model = "openai/gpt-5.2", ... }
 | `xuanjian config init` | 生成默认配置文件模板 |
 | `xuanjian config path` | 打印配置路径 |
 | `xuanjian config get <key>` | 读取配置（点号路径如 `review.enabled`） |
-| `xuanjian config set <key> <value>` | 写入 overrides（`~/.config/xuanjian.d/overrides.lua`） |
+| `xuanjian config set <key> <value>` | 写入 overrides（`~/.config/xuanjian/overrides.lua`） |
 
 ## 运行时覆盖
 

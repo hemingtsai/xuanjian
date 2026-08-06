@@ -51,7 +51,7 @@ bunx oxlint                      # 若有 lint 配置
 | 文档 | 代码契约 |
 |---|---|
 | docs/architecture.md | LLMEvent、ToolDef、事件总线、配置合并 |
-| docs/config.md | `~/.config/xuanjian.lua` schema |
+| docs/config.md | `~/.config/xuanjian/xuanjian.lua` schema |
 | docs/lua-api.md | `x` 全局 API 签名 |
 | docs/cli.md | 子命令/斜杠命令/flags/退出码 |
 | docs/providers.md | 适配器类型、provider 目录 |

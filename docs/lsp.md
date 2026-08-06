@@ -31,7 +31,7 @@ lsp/diagnostics.ts (诊断缓存) ←── publishDiagnostics ─────�
 | `yaml` | `yaml-language-server --stdio` |
 | `markdown` | `markdown-language-server --stdio` |
 
-命令缺失时该语言 LSP 功能自动禁用（工具返回空，不报错）。可在 `~/.config/xuanjian.lua` 覆盖：
+命令缺失时该语言 LSP 功能自动禁用（工具返回空，不报错）。可在 `~/.config/xuanjian/xuanjian.lua` 覆盖：
 
 ```lua
 lsp = {

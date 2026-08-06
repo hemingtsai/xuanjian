@@ -2,7 +2,7 @@ import fs from "node:fs"
 import { getLuaEngine } from "../lua/engine"
 import { beginConfigLoad, endConfigLoad } from "../lua/api/context"
 import { DEFAULTS } from "./defaults"
-import { configFilePath, overridesFilePath } from "./paths"
+import { configFilePath, overridesFilePath, migrateLegacyPaths } from "./paths"
 import type { Config } from "./schema"
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -65,6 +65,7 @@ export function setByPath(obj: Record<string, unknown>, path: string, value: unk
 }
 
 export async function loadConfig(): Promise<Config> {
+  migrateLegacyPaths()
   const user = (await loadLuaTable(configFilePath())) ?? {}
   const overrides = (await loadLuaTable(overridesFilePath())) ?? {}
   return mergeConfig(mergeConfig(DEFAULTS, user), overrides)
