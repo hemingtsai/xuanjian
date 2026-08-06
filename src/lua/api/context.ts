@@ -37,19 +37,55 @@ export function requireLuaContext(): LuaContext {
   return ctx
 }
 
-type PendingRegistrations = {
-  tools: import("../../tools/registry").ToolDef[]
-  commands: { name: string; fn: unknown }[]
+type PendingTool = import("../../tools/registry").ToolDef
+type PendingCommand = { name: string; fn: (args: string) => string | Promise<string | void> | undefined }
+type PendingProvider = { id: string; entry: import("../../config/schema").ProviderEntry }
+type PendingAgent = { id: string; entry: import("../../config/schema").AgentConfig }
+type PendingModel = { providerID: string; modelID: string; info: import("../../config/schema").ModelInfo }
+type PendingReviewer = import("../../config/schema").ReviewerConfig
+
+const pending = {
+  tools: [] as PendingTool[],
+  commands: [] as PendingCommand[],
+  providers: [] as PendingProvider[],
+  agents: [] as PendingAgent[],
+  models: [] as PendingModel[],
+  reviewers: [] as PendingReviewer[],
 }
 
-const pending: PendingRegistrations = { tools: [], commands: [] }
-
-export function bufferTool(tool: import("../../tools/registry").ToolDef): void {
+export function bufferTool(tool: PendingTool): void {
   pending.tools.push(tool)
 }
-
-export function bufferCommand(name: string, fn: unknown): void {
+export function bufferCommand(name: string, fn: PendingCommand["fn"]): void {
   pending.commands.push({ name, fn })
+}
+export function bufferProvider(id: string, entry: PendingProvider["entry"]): void {
+  pending.providers.push({ id, entry })
+}
+export function bufferAgent(id: string, entry: PendingAgent["entry"]): void {
+  pending.agents.push({ id, entry })
+}
+export function bufferModel(providerID: string, modelID: string, info: PendingModel["info"]): void {
+  pending.models.push({ providerID, modelID, info })
+}
+export function bufferReviewer(entry: PendingReviewer): void {
+  pending.reviewers.push(entry)
+}
+
+export function applyBufferedToConfig(config: Config): void {
+  for (const { id, entry } of pending.providers) config.provider[id] = entry
+  for (const { id, entry } of pending.agents) config.agents[id] = entry
+  for (const { providerID, modelID, info } of pending.models) {
+    const provider = config.provider[providerID]
+    if (provider) provider.models = { ...(provider.models ?? {}), [modelID]: info }
+  }
+  for (const entry of pending.reviewers) {
+    config.review.reviewers = [...(config.review.reviewers ?? []).filter((r) => r.name !== entry.name), entry]
+  }
+  pending.providers = []
+  pending.agents = []
+  pending.models = []
+  pending.reviewers = []
 }
 
 export function flushPending(ctx: LuaContext): void {
@@ -63,7 +99,7 @@ export function flushPending(ctx: LuaContext): void {
   pending.tools = []
   for (const { name, fn } of pending.commands) {
     try {
-      registerSlash(name, fn as (args: string) => string | Promise<string | void> | undefined)
+      registerSlash(name, fn)
     } catch {
       // REPL 命令注册失败不影响启动
     }
