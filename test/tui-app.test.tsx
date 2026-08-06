@@ -182,3 +182,31 @@ test("switchWorkspace: 非空会话拒绝，空会话允许", async () => {
 
   runtime.store.close()
 })
+
+test("粘贴到输入框 + 复制最后回复", async () => {
+  const runtime = await createRuntime({ config })
+  const session = runtime.sessions.create({ cwd: "/tmp" })
+  const controller = new TuiController(runtime, session)
+
+  const { renderer, renderOnce, mockInput, captureCharFrame } = await testRender(() => <App controller={controller} />, { width: 60, height: 12 })
+  await renderOnce()
+
+  // 粘贴
+  await mockInput.pasteBracketedText("粘贴的文本")
+  await renderOnce()
+  const frame = captureCharFrame()
+  expect(frame).toContain("粘贴的文本")
+
+  // 复制最后回复（OSC52 剪贴板回调）
+  let copied = ""
+  controller.clipboard = (text) => {
+    copied = text
+    return true
+  }
+  controller.out.push({ type: "assistant", text: "这是回复内容" })
+  const result = controller.copy(controller.lastAssistantText())
+  expect(copied).toBe("这是回复内容")
+  expect(result).toContain("已复制")
+
+  runtime.store.close()
+})

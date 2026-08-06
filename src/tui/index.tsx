@@ -70,6 +70,7 @@ function registerTuiSlash(controller: TuiController): void {
       "/review [todo] 触发审查流水线",
       "/compact      压缩上下文",
       "/clear        清空输出",
+      "/copy         复制最后一条回复（OSC52）",
       "/cost         上下文用量",
       "/state        会话状态",
       "/exit         退出",
@@ -165,6 +166,8 @@ function registerTuiSlash(controller: TuiController): void {
     controller.clearOutput()
     return undefined
   })
+
+  registerSlash("copy", () => controller.copy(controller.lastAssistantText()))
 
   registerSlash("cost", () => `上下文: ${controller.status().ctx}`)
 

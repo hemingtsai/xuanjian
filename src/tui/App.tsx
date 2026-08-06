@@ -1,6 +1,6 @@
 import { For, createEffect, createSignal } from "solid-js"
 import type { JSX } from "@opentui/solid"
-import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
+import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import type { TuiController } from "./controller"
 import type { OutputPart } from "./parts"
 import type { StatusInfo } from "./status"
@@ -9,8 +9,26 @@ export function App(props: { controller: TuiController }): JSX.Element {
   const controller = props.controller
   const [input, setInput] = createSignal("")
   let scrollRef: { scrollTop: number } | undefined
+  const renderer = useRenderer()
+  controller.clipboard = (text) => renderer.copyToClipboardOSC52(text)
+
+  const copySelection = (): void => {
+    const selection = renderer.getSelection()
+    const text = selection?.getSelectedText() ?? controller.lastAssistantText()
+    controller.out.push({ type: "system", text: controller.copy(text) })
+  }
 
   useKeyboard((e) => {
+    if (e.ctrl && e.shift && e.name === "c") {
+      copySelection()
+      e.preventDefault()
+      return
+    }
+    if (e.super && e.name === "c" && !e.ctrl) {
+      copySelection()
+      e.preventDefault()
+      return
+    }
     if (e.ctrl && e.name === "c") {
       e.preventDefault()
       if (controller.busy()) controller.interrupt()

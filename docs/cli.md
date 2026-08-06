@@ -154,10 +154,16 @@ xuanjian lsp debug                   # 打印语言服务器映射与运行状�
 | `↑` / `↓` | 输入历史（输入为空时滚动输出） |
 | `PageUp` / `PageDown` | 滚动输出区 |
 | `Ctrl-A` / `Ctrl-E` | 行首 / 行尾 |
+| `Ctrl-U` / `Ctrl-K` | 清空整行 / 清至行尾 |
+| `Ctrl-W` | 删除前一个词 |
 | `Ctrl-C` | 回合中=中断；modal 中=取消；空闲=退出 |
 | `Ctrl-L` | 清空输出 |
 | `Ctrl-D` | 退出 |
 | `Ctrl-O` | 打开 provider 连接向导（onboarding） |
+| `Ctrl-Shift-C` / `Cmd-C` | 复制选中文本；无选中时复制最后一条回复（OSC52） |
+| `/copy` | 复制最后一条回复（OSC52，终端需支持） |
+
+**复制粘贴说明**：终端内粘贴（`Cmd-V` / `Ctrl-Shift-V`）由输入框原生处理；复制优先用终端自己的选区（Shift+拖选 → `Cmd-C`/`Ctrl-Shift-C`），应用内复制用 `/copy` 或上方复制键（依赖终端 OSC52 支持）。
 
 **权限 modal**：`y` 允许 / `n` 拒绝 / `a` 本次会话 / `s` 总是允许。
 

@@ -33,6 +33,7 @@ export class TuiController {
   private hIndex = -1
   private abortCtrl: AbortController | null = null
   onExit: (() => void) | null = null
+  clipboard: ((text: string) => boolean) | null = null
 
   constructor(
     runtime: Runtime,
@@ -242,6 +243,28 @@ export class TuiController {
 
   clearOutput(): void {
     this.out.clear()
+  }
+
+  lastAssistantText(): string {
+    const parts = this.out.parts()
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i]!
+      if (p.type === "text") return p.text
+      if (p.type === "assistant") return p.text
+    }
+    return ""
+  }
+
+  copy(text: string): string {
+    if (!text) return "没有可复制的内容。"
+    if (this.clipboard && this.clipboard(text)) {
+      return `已复制 ${text.length} 字符到剪贴板。`
+    }
+    return "终端不支持 OSC52 剪贴板复制。"
+  }
+
+  copySelection(): string {
+    return this.copy(this.lastAssistantText())
   }
 
   switchWorkspace(cwd: string): string {
