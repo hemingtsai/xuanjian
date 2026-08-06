@@ -16,6 +16,7 @@
 ## 特性
 
 - **LSP 深度集成**：definition / references / documentSymbol / hover / diagnostics，作为 agent 工具与编辑后反馈
+- **全屏 TUI**：opencode 同款 @opentui 栈，底部持久状态栏（模型/agent/模式/工作区/LSP/DAP/上下文），GitHub 风格 diff 展示，流式滚动输出
 - **多 Provider**：Anthropic、OpenAI（Chat+Responses）、Gemini、xAI、OpenRouter、Azure、Bedrock、Copilot、Cloudflare + 任意 OpenAI 兼容服务（DeepSeek / Qwen / 智谱 / Ollama …）
 - **Lua 插件系统**：`~/.config/xuanjian.lua` 即配置，插件用 Lua 编写，暴露完整 `x` API（见 `docs/lua-api.md`）
 - **审查流水线**（"鉴"）：调度器派发多 review，结构化审查 git diff，自动 commit/push
@@ -27,7 +28,7 @@
 
 ```bash
 bun install
-bun run dev                    # 进入 REPL
+bun run dev                    # 进入全屏 TUI（模型/agent/模式/工作区/LSP/DAP/上下文状态栏）
 bun run -- src/index.ts run "把 README 翻译成英文"
 bun run -- src/index.ts config init
 bun run -- src/index.ts review "完成了登录鉴权模块"

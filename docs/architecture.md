@@ -9,10 +9,17 @@ src/
 ├── index.ts              # CLI 入口：参数解析、命令分发
 ├── cli/
 │   ├── banner.ts         # 书法风 XUANJIAN logo + go mini logo + 小终端降级
-│   ├── repl.ts           # 交互式 REPL（斜杠命令、权限询问、流式渲染）
 │   ├── run.ts            # 非交互模式 xuanjian run
-│   ├── render.ts         # 流式输出渲染、diff 高亮
-│   └── commands.ts       # 内置斜杠命令（/model /agent /goal ...）
+│   ├── render.ts         # 非交互流式渲染（run 模式）
+│   ├── doctor.ts         # 环境检查
+│   └── args.ts           # 参数解析
+├── tui/
+│   ├── App.tsx           # TUI 根组件：scrollbox 输出 + modal + 输入框 + 状态栏
+│   ├── controller.ts     # TuiController：会话/agent 循环接线、历史、modal 管理
+│   ├── parts.ts          # 输出部分类型 + LoopSink 桥接（流式 push 到 signal）
+│   ├── status.ts         # 状态栏构建（model/agent/模式/工作区/LSP/DAP/ctx）
+│   └── index.tsx         # runTui 入口：runtime 接线 + 斜杠命令 + 渲染
+├── dap/status.ts         # DAP 状态位（StatusProvider 预留）
 ├── core/
 │   ├── agent.ts          # agent 注册表与解析（build/plan/自定义）
 │   ├── session.ts        # 会话生命周期与消息持久化
@@ -75,11 +82,13 @@ src/
 
 ```
 index.ts → cli → core → { config, llm, lsp, tools, goal, review, lua, storage }
+index.ts → tui → { core, cli/banner, goal, review }
 ```
 
 - 上层调用下层；`lua/api` 依赖所有子系统（把 JS 能力暴露给 Lua）
 - `core/events.ts` 与 `lua/api/hooks.ts`：JS 事件总线触发 Lua 回调；Lua 回调返回 Promise 时 JS 侧 await
 - 禁止循环依赖：`lua/api` 不反向依赖 cli；`tools/registry` 不依赖 cli
+- **TUI（tui/）**：基于 @opentui/core + @opentui/solid（opencode 同款栈）。`controller.ts` 持会话与输出 signal；`parts.ts` 把 agent 的 `LoopSink` 流式写入 signal；`App.tsx` 响应式渲染 scrollbox/输入/状态栏；`useKeyboard` 处理全局键位
 
 ## 三大闭环数据流
 
