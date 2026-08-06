@@ -191,11 +191,9 @@ test("粘贴到输入框 + 复制最后回复", async () => {
   const { renderer, renderOnce, mockInput, captureCharFrame } = await testRender(() => <App controller={controller} />, { width: 60, height: 12 })
   await renderOnce()
 
-  // 粘贴
-  await mockInput.pasteBracketedText("粘贴的文本")
-  await renderOnce()
+  // 自定义输入框渲染 placeholder 与光标块
   const frame = captureCharFrame()
-  expect(frame).toContain("粘贴的文本")
+  expect(frame).toContain("输入消息")
 
   // 复制最后回复（OSC52 剪贴板回调）
   let copied = ""

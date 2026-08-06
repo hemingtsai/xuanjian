@@ -4,6 +4,7 @@ import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import type { TuiController } from "./controller"
 import type { OutputPart } from "./parts"
 import type { StatusInfo } from "./status"
+import { TextInput } from "./TextInput"
 
 export function App(props: { controller: TuiController }): JSX.Element {
   const controller = props.controller
@@ -107,26 +108,13 @@ export function App(props: { controller: TuiController }): JSX.Element {
       ) : null}
 
       <box flexShrink={0} paddingX={1}>
-        <input
-          focused={!controller.modal()}
+        <TextInput
           value={input()}
           onChange={(v) => setInput(v)}
-          onSubmit={(v) => submit(typeof v === "string" ? v : "")}
-          onKeyDown={(e) => {
-            if (e.name === "up") {
-              const h = controller.historyPrev()
-              if (h !== undefined) {
-                setInput(h)
-                e.preventDefault()
-              }
-            } else if (e.name === "down") {
-              const h = controller.historyNext()
-              if (h !== undefined) {
-                setInput(h)
-                e.preventDefault()
-              }
-            }
-          }}
+          onSubmit={(v) => submit(v)}
+          active={!controller.modal()}
+          onHistoryPrev={() => controller.historyPrev()}
+          onHistoryNext={() => controller.historyNext()}
           placeholder="输入消息，/help 查看命令"
         />
       </box>
@@ -243,32 +231,22 @@ function ModalView(props: { controller: TuiController; modal: { kind: string } &
   return (
     <box flexShrink={0} width={width} height={4} flexDirection="column" paddingX={1} backgroundColor="#1e293b" borderStyle="rounded" borderColor="#475569">
       <text fg="#fde047">⚠ {String(modal.text)}</text>
-      <input
-        focused
+      <TextInput
         value={value()}
-        maxLength={isPermission ? 1 : undefined}
         onChange={(v) => setValue(v)}
-        onKeyDown={(e) => {
-          if (e.ctrl && e.name === "c") {
-            props.controller.cancelModal()
-            e.preventDefault()
-            return
-          }
-          if (isPermission && e.name.length === 1 && !e.ctrl && !e.meta && !e.option) {
-            const a = e.name.toLowerCase()
-            const answer = a === "y" ? "allow" : a === "n" ? "deny" : a === "a" ? "session" : a === "s" ? "always" : "deny"
-            props.controller.resolveModal(answer)
-            e.preventDefault()
-          }
-        }}
         onSubmit={(v) => {
-          const valueStr = typeof v === "string" ? v : ""
           if (isPermission) {
-            const a = valueStr.toLowerCase()
+            const a = v.toLowerCase()
             props.controller.resolveModal(a === "y" ? "allow" : a === "n" ? "deny" : a === "a" ? "session" : a === "s" ? "always" : "deny")
           } else {
-            props.controller.resolveModal(valueStr)
+            props.controller.resolveModal(v)
           }
+        }}
+        active
+        oneChar={isPermission}
+        onChar={(ch) => {
+          const a = ch.toLowerCase()
+          props.controller.resolveModal(a === "y" ? "allow" : a === "n" ? "deny" : a === "a" ? "session" : a === "s" ? "always" : "deny")
         }}
         placeholder={isPermission ? "y=允许 n=拒绝 a=会话 s=总是" : "回答（Enter 提交）"}
       />
