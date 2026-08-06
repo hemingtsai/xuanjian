@@ -52,8 +52,13 @@ bun run -- src/index.ts run --goal "构建一个可部署的博客系统"
 ## 实施进度
 
 - [x] 阶段 0：脚手架
-- [ ] 阶段 1：文档（进行中）
-- [ ] 阶段 2：按文档实现各功能
+- [x] 阶段 1：文档（README / architecture / config / cli / lua-api / plugins / providers / lsp / review / goal / development）
+- [x] 阶段 2：全部功能（CLI、配置、LLM 多 Provider、agent loop、工具、权限、LSP、审查流水线、goal 长程模式、Lua 插件系统、doctor）
+
+```bash
+bun test        # 22 个测试
+bun run typecheck
+```
 
 ## License
 
