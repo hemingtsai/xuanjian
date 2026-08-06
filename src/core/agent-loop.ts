@@ -10,9 +10,14 @@ import type { ToolRegistry } from "../tools/registry"
 import { ToolRegistry as ToolRegistryImpl } from "../tools/registry"
 import type { ExecuteResult } from "../tools/registry"
 import type { SessionManager } from "./session"
+import type { LSPManager } from "../lsp/manager"
+import { pathToURI } from "../lsp/manager"
+import { summarizeDiagnostics } from "../lsp/features"
 import { complete } from "../llm/client"
 import type { LLMEvent, ToolDef, LLMMessage } from "../llm/llm"
 import { newUUID } from "./session"
+import path from "node:path"
+import fs from "node:fs"
 
 export interface LoopSink {
   text(chunk: string): void
@@ -33,6 +38,7 @@ export interface LoopOptions {
   agent?: AgentInfo
   model?: string
   sessionManager?: SessionManager
+  lspManager?: LSPManager
   sink?: Partial<LoopSink>
   askPermission?: (req: PermissionRequest) => Promise<PermissionAnswer | undefined>
   askUser?: (question: string) => Promise<string | undefined>
@@ -83,6 +89,7 @@ export async function runAgentTurn(input: string, opts: LoopOptions): Promise<Tu
           agent: subAgent,
           model: subModel,
           sessionManager: undefined,
+          lspManager: opts.lspManager,
           sink: { done: () => {} },
           abort,
         })
@@ -95,7 +102,7 @@ export async function runAgentTurn(input: string, opts: LoopOptions): Promise<Tu
     sessionID: session.id,
     abort,
     ask: opts.askUser,
-    extra: { subagent } as Record<string, unknown>,
+    extra: { subagent, lsp: opts.lspManager } as Record<string, unknown>,
   }
 
   let iterations = 0
@@ -179,6 +186,7 @@ export async function runAgentTurn(input: string, opts: LoopOptions): Promise<Tu
       let result: ExecuteResult
       try {
         result = await tool!.call(toolContext, call.args)
+        result = await attachDiagnostics(opts.lspManager, session.cwd, call.name, call.args, result)
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
         result = { title: call.name, output: `工具错误: ${message}` }
@@ -203,6 +211,34 @@ function toolSubject(call: { name: string; args: Record<string, unknown> }): str
 }
 
 const SUBAGENT_TOOLS = new Set(["read", "glob", "grep", "webfetch", "lsp_definition", "lsp_symbols", "lsp_references", "lsp_hover", "lsp_diagnostics"])
+
+const EDIT_TOOLS = new Set(["write", "edit", "apply_patch"])
+
+async function attachDiagnostics(
+  lsp: LSPManager | undefined,
+  cwd: string,
+  tool: string,
+  args: Record<string, unknown>,
+  result: ExecuteResult,
+): Promise<ExecuteResult> {
+  if (!lsp || !EDIT_TOOLS.has(tool)) return result
+  const file = args.file_path
+  if (typeof file !== "string") return result
+  const abs = path.isAbsolute(file) ? file : path.resolve(cwd, file)
+  const uri = pathToURI(abs)
+  try {
+    await lsp.didChange(uri, fs.readFileSync(abs, "utf8"))
+    await lsp.didSave(uri)
+    const diagnostics = lsp.getDiagnostics(uri)
+    const summary = summarizeDiagnostics(diagnostics, file)
+    if (summary) {
+      return { ...result, output: `${result.output}\n\n[LSP 诊断]\n${summary}` }
+    }
+  } catch {
+    // LSP 诊断失败不阻塞工具结果
+  }
+  return result
+}
 
 function restrictedSubregistry(registry: ToolRegistry): ToolRegistry {
   const sub = new ToolRegistryImpl()

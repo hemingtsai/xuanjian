@@ -45,6 +45,7 @@ export async function runTask(message: string, options: Options, goal: string | 
       agent,
       model,
       sessionManager: runtime.sessions,
+      lspManager: runtime.lsp,
       sink: renderer,
       askPermission: nonInteractive
         ? async (req: PermissionRequest) => {

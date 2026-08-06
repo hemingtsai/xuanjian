@@ -5,6 +5,7 @@ import { Store } from "../storage/db"
 import { SessionManager } from "./session"
 import { createDefaultRegistry } from "../tools/index"
 import type { ToolRegistry } from "../tools/registry"
+import { LSPManager } from "../lsp/manager"
 
 export interface Runtime {
   config: Config
@@ -12,16 +13,20 @@ export interface Runtime {
   sessions: SessionManager
   permission: PermissionEngine
   registry: ToolRegistry
+  lsp: LSPManager
 }
 
 export async function createRuntime(opts?: {
   config?: Config
   yes?: boolean
+  cwd?: string
 }): Promise<Runtime> {
   const config = opts?.config ?? (await loadConfig())
+  const cwd = opts?.cwd ?? process.cwd()
   const store = Store.open()
   const sessions = new SessionManager(store)
   const permission = new PermissionEngine(config.permission, opts?.yes ? { defaultOverride: "allow" } : undefined)
   const registry = createDefaultRegistry()
-  return { config, store, sessions, permission, registry }
+  const lsp = new LSPManager(config, cwd)
+  return { config, store, sessions, permission, registry, lsp }
 }

@@ -25,6 +25,7 @@ export interface ProviderEntry {
 export interface LspServerEntry {
   command?: string
   args?: string[]
+  initializationOptions?: Record<string, unknown>
   disabled?: boolean
 }
 

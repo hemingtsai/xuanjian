@@ -119,6 +119,7 @@ async function handleLine(rl: readline.Interface, repl: Repl, line: string): Pro
       agent,
       model,
       sessionManager: runtime.sessions,
+      lspManager: runtime.lsp,
       sink: renderer,
       askPermission: (req) => askPermissionInteractive(rl, req),
       askUser: (question) => askUserInteractive(rl, question),

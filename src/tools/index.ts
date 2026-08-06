@@ -10,6 +10,7 @@ import { TodoWriteTool } from "./todo"
 import { WebFetchTool } from "./webfetch"
 import { QuestionTool } from "./question"
 import { TaskTool } from "./task"
+import { LspDefinitionTool, LspReferencesTool, LspSymbolsTool, LspHoverTool, LspDiagnosticsTool } from "./lsp"
 
 export function createDefaultRegistry(): ToolRegistry {
   const registry = new ToolRegistry()
@@ -24,6 +25,11 @@ export function createDefaultRegistry(): ToolRegistry {
   registry.register(WebFetchTool)
   registry.register(QuestionTool)
   registry.register(TaskTool)
+  registry.register(LspDefinitionTool)
+  registry.register(LspReferencesTool)
+  registry.register(LspSymbolsTool)
+  registry.register(LspHoverTool)
+  registry.register(LspDiagnosticsTool)
   return registry
 }
 
