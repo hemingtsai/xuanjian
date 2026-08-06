@@ -3,6 +3,7 @@ import path from "node:path"
 import { z } from "zod"
 import type { ToolContext, ToolDef, ExecuteResult } from "./registry"
 import { parseArgs, zodToJsonSchema } from "./schema"
+import { unifiedDiff } from "../util/diff"
 
 const EditArgs = z.object({
   file_path: z.string().describe("要编辑的文件路径"),
@@ -27,6 +28,7 @@ export const EditTool: ToolDef = {
     }
     const next = args.replace_all ? content.split(args.old_string).join(args.new_string) : content.replace(args.old_string, args.new_string)
     fs.writeFileSync(abs, next, "utf8")
-    return { title: `编辑 ${args.file_path}`, output: `已替换 ${args.replace_all ? count : 1} 处` }
+    const diff = unifiedDiff(content, next, args.file_path)
+    return { title: `编辑 ${args.file_path}`, output: `已替换 ${args.replace_all ? count : 1} 处`, metadata: diff ? { diff } : undefined }
   },
 }

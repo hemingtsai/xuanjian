@@ -8,6 +8,7 @@
         "@opentui/core": "0.5.1",
         "@opentui/keymap": "0.5.1",
         "@opentui/solid": "0.5.1",
+        "diff": "9.0.0",
         "solid-js": "1.9.12",
         "vscode-languageserver-protocol": "^3.18.2",
         "wasmoon": "^1.16.0",

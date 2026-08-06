@@ -3,6 +3,7 @@ import path from "node:path"
 import { z } from "zod"
 import type { ToolContext, ToolDef, ExecuteResult } from "./registry"
 import { parseArgs, zodToJsonSchema } from "./schema"
+import { unifiedDiff } from "../util/diff"
 
 const ApplyPatchArgs = z.object({
   patch: z.string().describe(
@@ -156,23 +157,43 @@ export const ApplyPatchTool: ToolDef = {
       list.push(s)
       groups.set(abs, list)
     }
+    const diffParts: string[] = []
     for (const [abs, secs] of groups) {
+      const before = fs.existsSync(abs) ? fs.readFileSync(abs, "utf8") : ""
       const next = applyUpdate(abs, secs)
       fs.writeFileSync(abs, next, "utf8")
-      log.push(`更新 ${path.relative(ctx.cwd, abs)}`)
+      const rel = path.relative(ctx.cwd, abs)
+      log.push(`更新 ${rel}`)
+      const d = unifiedDiff(before, next, rel)
+      if (d) diffParts.push(d)
     }
     for (const s of sections) {
       if (s.kind === "add") {
         const abs = path.isAbsolute(s.file) ? s.file : path.resolve(ctx.cwd, s.file)
         fs.mkdirSync(path.dirname(abs), { recursive: true })
-        fs.writeFileSync(abs, s.content.join("\n") + (s.content.length > 0 ? "\n" : ""), "utf8")
-        log.push(`新增 ${path.relative(ctx.cwd, abs)}`)
+        const content = s.content.join("\n") + (s.content.length > 0 ? "\n" : "")
+        fs.writeFileSync(abs, content, "utf8")
+        const rel = path.relative(ctx.cwd, abs)
+        log.push(`新增 ${rel}`)
+        const d = unifiedDiff("", content, rel)
+        if (d) diffParts.push(d)
       } else if (s.kind === "delete") {
         const abs = path.isAbsolute(s.file) ? s.file : path.resolve(ctx.cwd, s.file)
-        if (fs.existsSync(abs)) fs.rmSync(abs, { recursive: true })
-        log.push(`删除 ${path.relative(ctx.cwd, abs)}`)
+        if (fs.existsSync(abs)) {
+          const before = fs.readFileSync(abs, "utf8")
+          const rel = path.relative(ctx.cwd, abs)
+          fs.rmSync(abs, { recursive: true })
+          log.push(`删除 ${rel}`)
+          const d = unifiedDiff(before, "", rel)
+          if (d) diffParts.push(d)
+        }
       }
     }
-    return { title: `apply_patch (${sections.length} 个变更)`, output: log.join("\n") || "无变更" }
+    const combined = diffParts.join("\n").trimEnd()
+    return {
+      title: `apply_patch (${sections.length} 个变更)`,
+      output: log.join("\n") || "无变更",
+      metadata: combined ? { diff: combined } : undefined,
+    }
   },
 }

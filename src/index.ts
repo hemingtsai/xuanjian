@@ -1,6 +1,6 @@
 import { parseArgs } from "./cli/args"
 import { banner } from "./cli/banner"
-import { runRepl } from "./cli/repl"
+import { runTui } from "./tui/index"
 import { runTask } from "./cli/run"
 import { loadConfig, getByPath } from "./config/loader"
 import { setOverride } from "./config/overrides"
@@ -133,7 +133,7 @@ async function main(): Promise<void> {
       printHelp()
       return
     case "repl":
-      await runRepl(options)
+      await runTui(options)
       return
     case "run":
       process.exitCode = await runTask(command.message, options, command.goal)

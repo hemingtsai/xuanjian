@@ -55,3 +55,16 @@ test("parsePatch handles all section kinds", () => {
 })
 
 rmSync(cwd, { recursive: true, force: true })
+
+test("edit produces metadata.diff", async () => {
+  await WriteTool.call(ctx, { file_path: "d.txt", content: "a\nb\nc\n" })
+  const r = await EditTool.call(ctx, { file_path: "d.txt", old_string: "b", new_string: "B" })
+  expect(r.metadata?.diff).toBeDefined()
+  expect(String(r.metadata?.diff)).toContain("-b")
+  expect(String(r.metadata?.diff)).toContain("+B")
+})
+
+test("write produces metadata.content", async () => {
+  const r = await WriteTool.call(ctx, { file_path: "e.txt", content: "hello\nworld\n" })
+  expect(r.metadata?.content).toBe("hello\nworld\n")
+})
