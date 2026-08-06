@@ -20,3 +20,5 @@ export function createDefaultRegistry(): ToolRegistry {
   registry.register(TodoWriteTool)
   return registry
 }
+
+export { ToolRegistry }

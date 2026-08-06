@@ -1,14 +1,16 @@
 import * as readline from "node:readline"
+import path from "node:path"
 import { banner } from "./banner"
 import type { Options } from "./args"
-
-export interface Repl {
-  readonly model: () => string | undefined
-  readonly setModel: (id: string) => void
-  readonly agent: () => string | undefined
-  readonly setAgent: (id: string) => void
-  readonly options: Options
-}
+import { createRuntime } from "../core/runtime"
+import type { Runtime } from "../core/runtime"
+import type { Session } from "../core/session"
+import { resolveAgent } from "../core/agent"
+import { runAgentTurn } from "../core/agent-loop"
+import type { PermissionAnswer } from "../core/agent-loop"
+import { StreamRenderer, statusLine } from "./render"
+import { toolSubject } from "../core/permission"
+import type { PermissionRequest } from "../core/permission"
 
 type SlashHandler = (args: string, repl: Repl) => string | Promise<string | void> | undefined
 
@@ -18,28 +20,51 @@ export function registerSlash(name: string, handler: SlashHandler): void {
   slashCommands.set(name, handler)
 }
 
+export interface Repl {
+  readonly runtime: Runtime
+  readonly session: Session
+  readonly model: () => string | undefined
+  readonly setModel: (id: string) => void
+  readonly agent: () => string | undefined
+  readonly setAgent: (id: string) => void
+}
+
 const PROMPT = "\x1b[90m玄鉴>\x1b[0m "
 
 export async function runRepl(options: Options): Promise<void> {
+  const cwd = options.directory ? path.resolve(process.cwd(), options.directory) : process.cwd()
+  const runtime = await createRuntime({ yes: options.yes })
+
+  let session =
+    (options.sessionId ? runtime.sessions.load(options.sessionId) : undefined) ??
+    (options.continueSession ? runtime.sessions.resumeLatest() : undefined)
+  if (!session || session.cwd !== cwd) {
+    session = runtime.sessions.create({ cwd, model: options.model, agent: options.agent })
+  }
+
   const repl: Repl = {
-    model: () => options.model,
+    runtime,
+    session,
+    model: () => session.model ?? options.model,
     setModel: (id) => {
-      options.model = id
+      session.setModel(id)
     },
-    agent: () => options.agent,
+    agent: () => session.agent ?? options.agent,
     setAgent: (id) => {
-      options.agent = id
+      session.setAgent(id)
     },
-    options,
   }
 
   process.stdout.write(banner() + "\n\n")
+  process.stdout.write(statusLine(repl.model() ?? "未设置") + "\n\n")
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: PROMPT })
 
   rl.on("SIGINT", () => {
     process.stdout.write("\n")
     rl.close()
+    runtime.store.close()
+    process.exit(130)
   })
 
   rl.on("line", (raw) => {
@@ -75,12 +100,50 @@ async function handleLine(rl: readline.Interface, repl: Repl, line: string): Pro
     return
   }
 
-  process.stdout.write("会话尚未实现（agent loop 将在后续功能提交中接入）。\n")
+  const { runtime, session } = repl
+  const agent = resolveAgent(session.agent, runtime.config)
+  const model = repl.model()
+  if (!model) {
+    process.stdout.write("未配置模型。用 /model <provider/model> 指定，或在配置中设置 model。\n")
+    rl.prompt()
+    return
+  }
+
+  const renderer = new StreamRenderer(model)
+  try {
+    await runAgentTurn(line, {
+      session,
+      config: runtime.config,
+      registry: runtime.registry,
+      permission: runtime.permission,
+      agent,
+      model,
+      sink: renderer,
+      askPermission: (req) => askPermissionInteractive(rl, req),
+    })
+  } catch (err) {
+    process.stdout.write(`\n\x1b[31m${err instanceof Error ? err.message : String(err)}\x1b[0m\n`)
+  }
   rl.prompt()
 }
 
+function askPermissionInteractive(rl: readline.Interface, req: PermissionRequest): Promise<PermissionAnswer | undefined> {
+  const subject = toolSubject(req.tool, req.args)
+  return new Promise((resolve) => {
+    process.stdout.write(`\n\x1b[33m⚠ 请求权限: ${req.tool}${subject ? ` ${subject}` : ""}\x1b[0m\n`)
+    rl.question("\x1b[90m[y]允许 [n]拒绝 [a]本次会话 [s]总是: \x1b[0m", (answer) => {
+      const a = answer.trim().toLowerCase()
+      if (a === "y") resolve("allow")
+      else if (a === "n") resolve("deny")
+      else if (a === "a") resolve("session")
+      else if (a === "s") resolve("always")
+      else resolve("deny")
+    })
+  })
+}
+
 registerSlash("help", () => {
-  const list = [
+  return [
     "/help         帮助",
     "/model [id]   查看/切换模型",
     "/agent [id]   查看/切换 agent",
@@ -90,7 +153,6 @@ registerSlash("help", () => {
     "/state        显示会话状态",
     "/exit         退出",
   ].join("\n")
-  return list
 })
 
 registerSlash("model", (args, repl) => {
@@ -107,7 +169,10 @@ registerSlash("agent", (args, repl) => {
 
 registerSlash("compact", () => "上下文压缩将在后续功能提交中实现。")
 registerSlash("cost", () => "费用统计将在后续功能提交中实现。")
-registerSlash("state", () => "会话状态将在后续功能提交中实现。")
+registerSlash("state", (_, repl) => {
+  const count = repl.runtime.store.listMessages(repl.session.id).length
+  return `会话 ${repl.session.id} · 工作目录 ${repl.session.cwd} · 消息数 ${count}`
+})
 registerSlash("clear", () => {
   process.stdout.write("\x1b[2J\x1b[H")
   return undefined
