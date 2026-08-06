@@ -97,3 +97,29 @@ test("x.state persists through store", async () => {
   expect(runtime.store.getState("state:test_key")).toBe('{"a":1}')
   runtime.store.close()
 })
+
+test("events bridge: JS emit → Lua hook side effect", async () => {
+  const runtime = await createRuntime()
+  const engine = await getLuaEngine()
+  await engine.doString(`
+    x.hooks.on("lsp.diagnostic", function(payload)
+      x.state.set("last_diag", payload.file)
+    end)
+  `)
+  const { emit } = await import("../src/core/events")
+  await emit("lsp.diagnostic", { file: "a.ts", diagnostics: [] })
+  expect(runtime.store.getState("state:last_diag")).toBe('"a.ts"')
+  runtime.store.close()
+})
+
+test("x.goal.create via Lua API", async () => {
+  const runtime = await createRuntime()
+  const engine = await getLuaEngine()
+  await engine.doString(`
+    x.__gid = x.goal.create { title = "测试目标", description = "由 Lua 创建" }
+  `)
+  const gid = engine.global.get("x").__gid
+  const goal = runtime.goals.load(String(gid))
+  expect(goal?.title).toBe("测试目标")
+  runtime.store.close()
+})
