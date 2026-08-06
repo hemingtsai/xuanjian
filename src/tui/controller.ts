@@ -27,6 +27,8 @@ export class TuiController {
   readonly setStatus: Setter<StatusInfo>
   readonly modal: Accessor<TuiModal | null>
   readonly setModal: Setter<TuiModal | null>
+  readonly modalValue: Accessor<string>
+  readonly setModalValue: Setter<string>
   readonly busy: Accessor<boolean>
   private setBusy: Setter<boolean>
   private history: string[] = []
@@ -48,9 +50,18 @@ export class TuiController {
     const [modal, setModal] = createSignal<TuiModal | null>(null)
     this.modal = modal
     this.setModal = setModal
+    const [modalValue, setModalValue] = createSignal("")
+    this.modalValue = modalValue
+    this.setModalValue = setModalValue
     const [busy, setBusy] = createSignal(false)
     this.busy = busy
     this.setBusy = setBusy
+  }
+
+  /** 设置 modal 并清空其文本输入值 */
+  showModal(m: TuiModal | null): void {
+    this.setModalValue("")
+    this.setModal(m)
   }
 
   exit(): void {
@@ -133,14 +144,14 @@ export class TuiController {
   askUser(question: string): Promise<string | undefined> {
     if (this.modal()) return Promise.resolve(undefined)
     return new Promise<string | undefined>((resolve) => {
-      this.setModal({ kind: "ask", text: question, resolve })
+      this.showModal({ kind: "ask", text: question, resolve })
     })
   }
 
   selectFromList(title: string, options: { name: string; description: string; value: string }[]): Promise<string | undefined> {
     if (this.modal()) return Promise.resolve(undefined)
     return new Promise<string | undefined>((resolve) => {
-      this.setModal({ kind: "select", title, options, resolve })
+      this.showModal({ kind: "select", title, options, resolve })
     })
   }
 
@@ -175,7 +186,7 @@ export class TuiController {
     }
     const { setCredential } = await import("../config/credentials")
     setCredential(providerId, { apiKey: apiKey.trim() })
-    this.out.push({ type: "system", text: `✓ 已连接 ${providerId}` })
+    this.out.push({ type: "system", text: `✓ 已连接 ${providerId}（key: ${maskKey(apiKey.trim())}）` })
     if (!this.runtime.config.model && target.defaultModel) {
       const { setOverride } = await import("../config/overrides")
       await setOverride("model", target.defaultModel)
@@ -307,4 +318,9 @@ export class TuiController {
     }
     return lines.join("\n").trimEnd()
   }
+}
+
+function maskKey(key: string): string {
+  if (key.length <= 6) return "*".repeat(key.length)
+  return `${key.slice(0, 3)}${"*".repeat(Math.min(key.length - 6, 6))}${key.slice(-3)}`
 }

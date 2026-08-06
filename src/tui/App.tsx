@@ -1,6 +1,6 @@
 import { For, createEffect, createSignal } from "solid-js"
 import type { JSX } from "@opentui/solid"
-import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
+import { useKeyboard, usePaste, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import type { TuiController } from "./controller"
 import type { OutputPart } from "./parts"
 import type { StatusInfo } from "./status"
@@ -18,7 +18,53 @@ export function App(props: { controller: TuiController }): JSX.Element {
     controller.out.push({ type: "system", text: controller.copy(text) })
   }
 
+  usePaste((e) => {
+    if (controller.modal()?.kind !== "ask") return
+    const text = new TextDecoder().decode(e.bytes).replace(/\r?\n/g, " ").replace(/[\x00-\x1f]/g, "")
+    if (text) controller.setModalValue((v) => v + text)
+  })
+
   useKeyboard((e) => {
+    // ask 弹窗：文本输入由全局 handler 接管（原生 input 在弹窗中不可靠）
+    const modalState = controller.modal()
+    if (modalState?.kind === "permission") {
+      if (e.ctrl && e.name === "c") {
+        controller.cancelModal()
+        e.preventDefault()
+        return
+      }
+      if (!e.ctrl && !e.meta && e.sequence && e.sequence.length === 1) {
+        const a = e.sequence.toLowerCase()
+        modalState.resolve(a === "y" ? "allow" : a === "n" ? "deny" : a === "a" ? "session" : a === "s" ? "always" : "deny")
+        e.preventDefault()
+        return
+      }
+      return
+    }
+    if (modalState?.kind === "ask") {
+      if (e.ctrl && e.name === "c") {
+        controller.cancelModal()
+        e.preventDefault()
+        return
+      }
+      if (e.name === "return") {
+        const v = controller.modalValue()
+        controller.resolveModal(v)
+        e.preventDefault()
+        return
+      }
+      if (e.name === "backspace") {
+        controller.setModalValue((v) => v.slice(0, -1))
+        e.preventDefault()
+        return
+      }
+      if (!e.ctrl && !e.meta && !e.super && !e.hyper && e.sequence && e.sequence.length === 1 && e.sequence.charCodeAt(0) >= 32) {
+        controller.setModalValue((v) => v + e.sequence)
+        e.preventDefault()
+        return
+      }
+      return
+    }
     if (e.ctrl && e.shift && e.name === "c") {
       copySelection()
       e.preventDefault()
@@ -238,40 +284,12 @@ function ModalView(props: { controller: TuiController; modal: { kind: string } &
     )
   }
   const isPermission = modal.kind === "permission"
-  const [value, setValue] = createSignal("")
+  const v = props.controller.modalValue()
 
   return (
     <box flexShrink={0} width={width} height={4} flexDirection="column" paddingX={1} backgroundColor="#1e293b" borderStyle="rounded" borderColor="#475569">
       <text fg="#fde047">⚠ {String(modal.text)}</text>
-      <input
-        focused
-        value={value()}
-        maxLength={isPermission ? 1 : undefined}
-        onChange={(v) => setValue(v)}
-        onKeyDown={(e) => {
-          if (e.ctrl && e.name === "c") {
-            props.controller.cancelModal()
-            e.preventDefault()
-            return
-          }
-          if (isPermission && e.name.length === 1 && !e.ctrl && !e.meta && !e.option) {
-            const a = e.name.toLowerCase()
-            const answer = a === "y" ? "allow" : a === "n" ? "deny" : a === "a" ? "session" : a === "s" ? "always" : "deny"
-            props.controller.resolveModal(answer)
-            e.preventDefault()
-          }
-        }}
-        onSubmit={(v) => {
-          const valueStr = typeof v === "string" ? v : ""
-          if (isPermission) {
-            const a = valueStr.toLowerCase()
-            props.controller.resolveModal(a === "y" ? "allow" : a === "n" ? "deny" : a === "a" ? "session" : a === "s" ? "always" : "deny")
-          } else {
-            props.controller.resolveModal(valueStr)
-          }
-        }}
-        placeholder={isPermission ? "y=允许 n=拒绝 a=会话 s=总是" : "回答（Enter 提交）"}
-      />
+      <text fg="#e2e8f0">{v}</text>
     </box>
   )
 }
