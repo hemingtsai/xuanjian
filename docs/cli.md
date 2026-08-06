@@ -43,15 +43,17 @@ xuanjian config init | path | get <key> | set <key> <value>
 ```
 
 ### `xuanjian workspace`
-切换/查看工作区（默认工作目录，持久化到 overrides）。
+切换/查看工作区（当前工作区 = 新会话的默认工作目录，持久化到 overrides）。
 
 ```
 xuanjian workspace                 # 查看当前工作区
-xuanjian workspace ~/my-project    # 设置默认工作区（新会话生效）
+xuanjian workspace ~/my-project    # 设置当前工作区
 ```
 
-- CLI 命令设置**新会话的默认工作区**。
-- TUI 内 `/workspace <path>` 切换**当前会话**工作区——**仅空会话（无消息）可切换**，非空会话会拒绝并提示改用 `xuanjian workspace` 设默认或 `/session resume` 恢复其他会话。
+- **所有新会话都在当前工作区创建**（TUI / run 默认工作目录 = 工作区）。
+- 进入 `xuanjian` 时工作目录默认设为当前工作区。
+- TUI 内 `/workspace <path>` 切换当前会话工作区——**仅空会话可切换**，切换同时更新默认工作区并持久化；非空会话拒绝并提示替代方案。
+- **无消息的会话不保存**：未发送任何消息的会话不会写入数据库，`xuanjian sessions` 只列出有消息的会话。
 
 ### `xuanjian sessions`
 会话管理（按工作区列出 / 恢复 / 删除）。

@@ -1,5 +1,6 @@
 import path from "node:path"
 import type { Options } from "./args"
+import { loadConfig } from "../config/loader"
 import { createRuntime } from "../core/runtime"
 import { resolveAgent } from "../core/agent"
 import { runAgentTurn } from "../core/agent-loop"
@@ -15,8 +16,9 @@ export async function runTask(message: string, options: Options, goal: string | 
     return 2
   }
 
-  const cwd = options.directory ? path.resolve(process.cwd(), options.directory) : process.cwd()
-  const runtime = await createRuntime({ yes: options.yes, cwd })
+  const config = await loadConfig()
+  const cwd = options.directory ? path.resolve(process.cwd(), options.directory) : (config.workspace ?? process.cwd())
+  const runtime = await createRuntime({ config, yes: options.yes, cwd })
 
   if (goal) {
     const model = options.model ?? runtime.config.model

@@ -108,3 +108,24 @@ test("会话管理：按工作区列出 + 删除", async () => {
   expect(sm.delete(b.id)).toBe(true)
   store.close()
 })
+
+test("空会话不落库，有消息才保存", async () => {
+  const { Store } = await import("../src/storage/db")
+  const { SessionManager } = await import("../src/core/session")
+  const store = Store.open()
+  const sm = new SessionManager(store)
+
+  const empty = sm.create({ cwd: "/wsEmpty" })
+  expect(store.getSession(empty.id)).toBeUndefined()  // 无消息不保存
+
+  const used = sm.create({ cwd: "/wsUsed" })
+  used.addMessage({ role: "user", content: "hi" })
+  expect(store.getSession(used.id)).toBeDefined()     // 有消息保存
+  expect(store.listMessages(used.id).length).toBe(1)
+
+  const groups = sm.listByWorkspace()
+  expect(groups.some((g) => g.cwd === "/wsEmpty")).toBe(false)  // 空工作区不出现
+  expect(groups.some((g) => g.cwd === "/wsUsed")).toBe(true)
+
+  store.close()
+})

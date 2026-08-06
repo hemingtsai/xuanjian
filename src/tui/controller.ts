@@ -12,6 +12,7 @@ import { TuiOutput, createTuiSink } from "./parts"
 import { buildStatus, type StatusInfo } from "./status"
 import { loginTargets } from "../cli/auth"
 import { hasApiKey } from "../config/credentials"
+import { setOverride } from "../config/overrides"
 import { LSPManager } from "../lsp/manager"
 
 export type TuiModal =
@@ -283,6 +284,8 @@ export class TuiController {
       return "当前会话非空，无法切换工作区（仅空会话可改）。\n可用 `xuanjian workspace <path>` 设置新会话默认工作区，或用 /session resume 恢复其他工作区的会话。"
     }
     this.session.setCwd(cwd)
+    this.runtime.config.workspace = cwd
+    void setOverride("workspace", cwd)
     this.runtime.lsp.shutdown()
     this.runtime.lsp = new LSPManager(this.runtime.config, cwd)
     this.refreshStatus()

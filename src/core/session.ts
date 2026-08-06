@@ -15,11 +15,25 @@ export class Session {
   readonly id: string
   readonly store: Store
   private data: SessionRecord
+  private persisted: boolean
 
-  constructor(store: Store, data: SessionRecord) {
+  constructor(store: Store, data: SessionRecord, persisted = true) {
     this.store = store
     this.id = data.id
     this.data = data
+    this.persisted = persisted
+  }
+
+  get isPersisted(): boolean {
+    return this.persisted
+  }
+
+  /** 首次写入消息时才落库：无消息的会话不保存 */
+  private ensurePersisted(): void {
+    if (!this.persisted) {
+      this.store.createSession(this.data)
+      this.persisted = true
+    }
   }
 
   get cwd(): string {
@@ -40,25 +54,26 @@ export class Session {
 
   setModel(model: string): void {
     this.data.model = model
-    this.store.updateSession(this.id, { model })
+    if (this.persisted) this.store.updateSession(this.id, { model })
   }
 
   setAgent(agent: string): void {
     this.data.agent = agent
-    this.store.updateSession(this.id, { agent })
+    if (this.persisted) this.store.updateSession(this.id, { agent })
   }
 
   setTitle(title: string): void {
     this.data.title = title
-    this.store.updateSession(this.id, { title })
+    if (this.persisted) this.store.updateSession(this.id, { title })
   }
 
   setCwd(cwd: string): void {
     this.data.cwd = cwd
-    this.store.updateSession(this.id, { cwd })
+    if (this.persisted) this.store.updateSession(this.id, { cwd })
   }
 
   messages(): MessageRecord[] {
+    if (!this.persisted) return []
     return this.store.listMessages(this.id)
   }
 
@@ -68,6 +83,7 @@ export class Session {
     toolCalls?: { id: string; name: string; args: Record<string, unknown> }[]
     toolCallId?: string
   }): MessageRecord {
+    this.ensurePersisted()
     const record: MessageRecord = {
       id: newUUID(),
       session_id: this.id,
@@ -124,8 +140,8 @@ export class SessionManager {
       created_at: Date.now(),
       updated_at: Date.now(),
     }
-    this.store.createSession(record)
-    return new Session(this.store, record)
+    // 惰性落库：有消息才保存，无消息的会话不进入数据库
+    return new Session(this.store, record, false)
   }
 
   load(id: string): Session | undefined {
