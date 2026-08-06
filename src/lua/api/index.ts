@@ -28,11 +28,17 @@ let installed = false
 
 // 关键：x 表在 Lua 侧构建。直接注入 JS 对象会导致表中的 Lua 函数在调用时
 // 运行在不可 yield 的主线程上（wasmoon 限制），协程 await 会失败。
-function buildLuaXTable(api: Record<string, Record<string, unknown>>): string {
+type ApiLeaf = Record<string, unknown> | ((...args: unknown[]) => unknown)
+
+function buildLuaXTable(api: Record<string, ApiLeaf>): string {
   const lines: string[] = ["x = {}"]
-  for (const [ns, methods] of Object.entries(api)) {
+  for (const [ns, value] of Object.entries(api)) {
+    if (typeof value === "function") {
+      lines.push(`x[${JSON.stringify(ns)}] = _xapi[${JSON.stringify(ns)}]`)
+      continue
+    }
     lines.push(`x[${JSON.stringify(ns)}] = {}`)
-    for (const name of Object.keys(methods)) {
+    for (const name of Object.keys(value)) {
       lines.push(`x[${JSON.stringify(ns)}][${JSON.stringify(name)}] = _xapi[${JSON.stringify(ns)}][${JSON.stringify(name)}]`)
     }
   }
@@ -45,7 +51,7 @@ export async function installXApi(engine: LuaEngine): Promise<void> {
   if (installed) return
   installed = true
 
-  const api: Record<string, Record<string, unknown>> = {
+  const api: Record<string, ApiLeaf> = {
     log: luaLog,
     config: luaConfig,
     hooks: { on: hooks.on, off: hooks.off },
