@@ -22,6 +22,8 @@ export interface TextMessage {
   content: string
   toolCalls?: ToolCall[]
   toolCallId?: string
+  /** 思考模式（如 DeepSeek reasoning_content）：必须原样回传给 API */
+  reasoning?: string
 }
 
 export interface ToolMessage {

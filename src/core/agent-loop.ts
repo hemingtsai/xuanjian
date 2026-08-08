@@ -124,6 +124,7 @@ export async function runAgentTurn(input: string, opts: LoopOptions): Promise<Tu
 
     const toolCalls: { id: string; name: string; args: Record<string, unknown> }[] = []
     let streamedText = ""
+    let streamedReasoning = ""
 
     for await (const event of complete(model, { system: agent.system_prompt, messages, tools, signal: abort }, config)) {
       if (abort?.aborted) throw new Error("已中止")
@@ -133,6 +134,7 @@ export async function runAgentTurn(input: string, opts: LoopOptions): Promise<Tu
           sink.text?.(event.text)
           break
         case "reasoning":
+          streamedReasoning += event.text
           sink.reasoning?.(event.text)
           break
         case "tool_call":
@@ -148,13 +150,13 @@ export async function runAgentTurn(input: string, opts: LoopOptions): Promise<Tu
 
     if (toolCalls.length === 0) {
       finalText = streamedText
-      session.addMessage({ role: "assistant", content: streamedText })
+      session.addMessage({ role: "assistant", content: streamedText, reasoning: streamedReasoning })
       await Events.emit("message.assistant", { session_id: session.id, text: streamedText })
       sink.done?.(streamedText)
       return { text: finalText, iterations }
     }
 
-    session.addMessage({ role: "assistant", content: streamedText, toolCalls })
+    session.addMessage({ role: "assistant", content: streamedText, toolCalls, reasoning: streamedReasoning })
     await Events.emit("message.assistant", { session_id: session.id, text: streamedText })
 
     for (const call of toolCalls) {

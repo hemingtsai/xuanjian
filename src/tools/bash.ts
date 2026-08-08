@@ -1,4 +1,5 @@
 import path from "node:path"
+import fs from "node:fs"
 import { z } from "zod"
 import type { ToolContext, ToolDef, ExecuteResult } from "./registry"
 import { parseArgs, zodToJsonSchema } from "./schema"
@@ -12,6 +13,20 @@ const BashArgs = z.object({
 
 const MAX_OUTPUT = 64 * 1024
 
+/** 解析 shell 绝对路径：TUI 环境下 PATH 可能不完整，直接用 SHELL 或 /bin/bash 避免 posix_spawn ENOENT */
+function resolveShell(): string {
+  const shell = process.env.SHELL
+  if (shell && path.isAbsolute(shell)) {
+    try {
+      fs.accessSync(shell)
+      return shell
+    } catch {
+      // 不存在则回退
+    }
+  }
+  return process.platform === "win32" ? "cmd.exe" : "/bin/bash"
+}
+
 export const BashTool: ToolDef = {
   id: "bash",
   description: "执行 shell 命令。适合构建、测试、git 操作等。输出截断至 64KB。",
@@ -21,7 +36,8 @@ export const BashTool: ToolDef = {
     const timeout = args.timeout_ms ?? 120_000
     const cwd = args.cwd ? (path.isAbsolute(args.cwd) ? args.cwd : path.resolve(ctx.cwd, args.cwd)) : ctx.cwd
 
-    const proc = Bun.spawn(["bash", "-c", args.command], {
+    const shell = resolveShell()
+    const proc = Bun.spawn([shell, "-c", args.command], {
       cwd,
       stdout: "pipe",
       stderr: "pipe",

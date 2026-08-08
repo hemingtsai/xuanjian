@@ -82,6 +82,7 @@ export class Session {
     content: string
     toolCalls?: { id: string; name: string; args: Record<string, unknown> }[]
     toolCallId?: string
+    reasoning?: string
   }): MessageRecord {
     this.ensurePersisted()
     const record: MessageRecord = {
@@ -91,6 +92,7 @@ export class Session {
       content: input.content,
       tool_calls: input.toolCalls ? JSON.stringify(input.toolCalls) : undefined,
       tool_call_id: input.toolCallId,
+      reasoning: input.reasoning,
       created_at: Date.now(),
     }
     this.store.addMessage(record)
@@ -107,7 +109,7 @@ export class Session {
       }
       if (m.role === "user" || m.role === "assistant") {
         const toolCalls = m.tool_calls ? (JSON.parse(m.tool_calls) as { id: string; name: string; args: Record<string, unknown> }[]) : undefined
-        messages.push({ role: m.role as "user" | "assistant", content: m.content, toolCalls })
+        messages.push({ role: m.role as "user" | "assistant", content: m.content, toolCalls, ...(m.reasoning ? { reasoning: m.reasoning } : {}) })
       }
     }
     return messages

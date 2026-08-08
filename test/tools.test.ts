@@ -3,6 +3,7 @@ import { WriteTool } from "../src/tools/write"
 import { EditTool } from "../src/tools/edit"
 import { ReadTool } from "../src/tools/read"
 import { ApplyPatchTool, parsePatch } from "../src/tools/apply_patch"
+import { BashTool } from "../src/tools/bash"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
@@ -67,4 +68,9 @@ test("edit produces metadata.diff", async () => {
 test("write produces metadata.content", async () => {
   const r = await WriteTool.call(ctx, { file_path: "e.txt", content: "hello\nworld\n" })
   expect(r.metadata?.content).toBe("hello\nworld\n")
+})
+
+test("bash 工具用绝对 shell 路径执行", async () => {
+  const r = await BashTool.call({ cwd: "/tmp" }, { command: "pwd" })
+  expect(r.output).toContain("/tmp")
 })

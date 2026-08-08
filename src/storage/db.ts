@@ -18,6 +18,7 @@ export interface MessageRecord {
   content: string
   tool_calls?: string
   tool_call_id?: string
+  reasoning?: string
   created_at: number
 }
 
@@ -84,6 +85,11 @@ export class Store {
         updated_at INTEGER NOT NULL
       );
     `)
+    // 迁移：旧库补 reasoning 列（思考模型回传必需）
+    const msgCols = db.query(`PRAGMA table_info(messages)`).all() as { name: string }[]
+    if (!msgCols.some((c) => c.name === "reasoning")) {
+      db.run(`ALTER TABLE messages ADD COLUMN reasoning TEXT`)
+    }
     return new Store(db)
   }
 
@@ -129,8 +135,8 @@ export class Store {
   // ---- messages ----
   addMessage(m: MessageRecord): void {
     this.db
-      .query(`INSERT INTO messages (id, session_id, role, content, tool_calls, tool_call_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      .run(m.id, m.session_id, m.role, m.content, m.tool_calls ?? null, m.tool_call_id ?? null, m.created_at)
+      .query(`INSERT INTO messages (id, session_id, role, content, tool_calls, tool_call_id, reasoning, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(m.id, m.session_id, m.role, m.content, m.tool_calls ?? null, m.tool_call_id ?? null, m.reasoning ?? null, m.created_at)
   }
 
   listMessages(sessionId: string): MessageRecord[] {
@@ -204,6 +210,7 @@ function mapMessage(row: Record<string, unknown>): MessageRecord {
     content: String(row.content),
     tool_calls: row.tool_calls == null ? undefined : String(row.tool_calls),
     tool_call_id: row.tool_call_id == null ? undefined : String(row.tool_call_id),
+    reasoning: row.reasoning == null ? undefined : String(row.reasoning),
     created_at: Number(row.created_at),
   }
 }

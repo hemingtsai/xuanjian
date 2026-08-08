@@ -13,6 +13,7 @@ export function toOpenAIMessages(messages: LLMMessage[]): unknown[] {
       continue
     }
     const msg: Record<string, unknown> = { role: "assistant", content: message.content }
+    if (message.reasoning) msg.reasoning_content = message.reasoning
     if (message.toolCalls && message.toolCalls.length > 0) {
       msg.tool_calls = message.toolCalls.map((tc) => ({
         id: tc.id,
