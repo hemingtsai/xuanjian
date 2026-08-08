@@ -263,6 +263,7 @@ export class TuiController {
       this.authStep = "none"
       this.authTarget = null
       this.authTargets = []
+      this.refreshStatus()
       return true
     }
     return false

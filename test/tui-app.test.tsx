@@ -174,6 +174,7 @@ test("openAuthWizard: 主输入流选 provider → 输 key → 保存凭据并�
   const { hasApiKey } = await import("../src/config/credentials")
   expect(hasApiKey("anthropic")).toBe(true)
   expect(controller.runtime.config.model).toBe("anthropic/claude-sonnet-4-5")
+  expect(controller.status().model).toBe("anthropic/claude-sonnet-4-5")
 
   const { deleteCredential } = await import("../src/config/credentials")
   deleteCredential("anthropic")
