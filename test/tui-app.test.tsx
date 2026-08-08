@@ -1,5 +1,6 @@
 import { test, expect } from "bun:test"
 import { testRender } from "@opentui/solid"
+import http from "node:http"
 import { createRuntime } from "../src/core/runtime"
 import { TuiController } from "../src/tui/controller"
 import { App } from "../src/tui/App"
@@ -275,5 +276,72 @@ test("TuiController.cyclePanelTab 切换面板选项卡", async () => {
   expect(controller.panelTab()).toBe("review")
   controller.cyclePanelTab()
   expect(controller.panelTab()).toBe("todos")
+  runtime.store.close()
+})
+
+function startMockServer() {
+  let calls = 0
+  const server = http.createServer((req, res) => {
+    req.resume()
+    req.on("end", () => {
+      calls++
+      res.writeHead(200, { "content-type": "text/event-stream" })
+      const sse = (d: unknown) => res.write(`data: ${JSON.stringify(d)}\n\n`)
+      if (calls === 1) {
+        // 首次请求返回 glob 工具调用 → 触发权限申请
+        sse({ type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "toolu_1", name: "glob" } })
+        sse({ type: "content_block_delta", index: 0, delta: { type: "input_json_delta", partial_json: "{}" } })
+        sse({ type: "content_block_stop", index: 0 })
+        sse({ type: "message_delta", delta: { stop_reason: "tool_use" } })
+        sse({ type: "message_stop" })
+      } else {
+        sse({ type: "content_block_start", index: 0, content_block: { type: "text", text: "" } })
+        sse({ type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "done" } })
+        sse({ type: "content_block_stop", index: 0 })
+        sse({ type: "message_delta", delta: { stop_reason: "end_turn" } })
+        sse({ type: "message_stop" })
+      }
+      res.end()
+    })
+  })
+  return new Promise<{ port: number; close: () => void }>((resolve) => {
+    server.listen(0, () => resolve({ port: (server.address() as { port: number }).port, close: () => server.close() }))
+  })
+}
+
+async function waitUntil(predicate: () => boolean, timeoutMs = 3000): Promise<void> {
+  const start = Date.now()
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) throw new Error("waitUntil 超时")
+    await new Promise((r) => setTimeout(r, 10))
+  }
+}
+
+test("权限申请：agent busy 等待时主输入框应答 y 放行", async () => {
+  const mock = await startMockServer()
+  const mockConfig: Config = {
+    ...config,
+    model: "mock/claude-sonnet-4-5",
+    provider: { mock: { type: "anthropic", base_url: `http://localhost:${mock.port}/v1`, api_key_env: "MOCK_KEY" } },
+  }
+  process.env.MOCK_KEY = "test-key"
+  const runtime = await createRuntime({ config: mockConfig })
+  const session = runtime.sessions.create({ cwd: "/tmp", model: "mock/claude-sonnet-4-5" })
+  const controller = new TuiController(runtime, session)
+
+  const task = controller.submit("看看这里有什么")
+  await waitUntil(() => controller.out.parts().some((p) => ("text" in p ? p.text : "").includes("请求权限")))
+  expect(controller.busy()).toBe(true)
+  const prompt = controller.out.parts().map((p) => ("text" in p ? p.text : "")).join(" ")
+  expect(prompt).toContain("[权限] 请求权限: glob")
+
+  await controller.submit("y")
+  await task
+
+  const text = controller.out.parts().map((p) => ("text" in p ? p.text : "")).join(" ")
+  expect(text).toContain("done")
+
+  mock.close()
+  delete process.env.MOCK_KEY
   runtime.store.close()
 })

@@ -22,7 +22,8 @@ export function toolSubject(tool: string, args: Record<string, unknown>): string
   const file = args.file_path ?? args.path
   if (typeof file === "string") return file
   try {
-    return JSON.stringify(args)
+    const json = JSON.stringify(args)
+    return json === "{}" ? "" : json
   } catch {
     return ""
   }

@@ -98,9 +98,9 @@ export class TuiController {
 
   async submit(raw: string): Promise<void> {
     const text = raw.trim()
-    if (!text || this.busy()) return
+    if (!text) return
 
-    // 权限应答
+    // 权限应答：agent 等待权限期间（busy）也必须响应
     if (this.pendingPermission) {
       const p = this.pendingPermission
       this.pendingPermission = null
@@ -125,6 +125,8 @@ export class TuiController {
       await this.handleAuthInput(text)
       return
     }
+
+    if (this.busy()) return
 
     this.pushHistory(text)
     this.out.push({ type: "user", text })
