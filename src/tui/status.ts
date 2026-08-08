@@ -42,6 +42,14 @@ export function lspStatus(manager: LSPManager, max = 3): string {
   return parts.join(" ") || "—"
 }
 
+/** 工作区是一个目录：home 下用 ~ 缩写，否则显示完整路径 */
+export function formatWorkspace(cwd: string): string {
+  const home = process.env.HOME
+  if (home && cwd === home) return "~"
+  if (home && cwd.startsWith(home + path.sep)) return `~${cwd.slice(home.length)}`
+  return cwd
+}
+
 export function buildStatus(input: {
   config: Config
   model: string | undefined
@@ -60,7 +68,7 @@ export function buildStatus(input: {
     model,
     agent,
     mode: agent + (input.goalActive ? " · goal" : ""),
-    workspace: path.basename(input.cwd) || input.cwd,
+    workspace: formatWorkspace(input.cwd),
     lsp: lspStatus(input.lsp),
     dap: getDapStatus().state,
     ctx,
