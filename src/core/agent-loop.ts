@@ -12,6 +12,7 @@ import type { ExecuteResult } from "../tools/registry"
 import type { SessionManager } from "./session"
 import type { LSPManager } from "../lsp/manager"
 import { pathToURI } from "../lsp/manager"
+import type { TodoStore } from "./todo-store"
 import { summarizeDiagnostics } from "../lsp/features"
 import { complete } from "../llm/client"
 import type { LLMEvent, ToolDef, LLMMessage } from "../llm/llm"
@@ -39,6 +40,7 @@ export interface LoopOptions {
   model?: string
   sessionManager?: SessionManager
   lspManager?: LSPManager
+  todos?: TodoStore
   sink?: Partial<LoopSink>
   askPermission?: (req: PermissionRequest) => Promise<PermissionAnswer | undefined>
   askUser?: (question: string) => Promise<string | undefined>
@@ -108,7 +110,7 @@ export async function runAgentTurn(input: string, opts: LoopOptions): Promise<Tu
     sessionID: session.id,
     abort,
     ask: opts.askUser,
-    extra: { subagent, lsp: opts.lspManager } as Record<string, unknown>,
+    extra: { subagent, lsp: opts.lspManager, todos: opts.todos } as Record<string, unknown>,
   }
 
   let iterations = 0

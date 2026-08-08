@@ -33,7 +33,7 @@ test("formatReport renders summary", () => {
     false,
     false,
   )
-  expect(report).toContain("🔴")
+  expect(report).toContain("[严重]")
   expect(report).toContain("1 个问题")
 })
 

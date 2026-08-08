@@ -14,6 +14,10 @@ import { loginTargets } from "../cli/auth"
 import { hasApiKey } from "../config/credentials"
 import { setOverride } from "../config/overrides"
 import { LSPManager } from "../lsp/manager"
+import { runReview, fixTasksFromReview } from "../review/pipeline"
+import type { TodoItem, ReviewFeedEntry } from "../core/todo-store"
+
+export type PanelTab = "todos" | "review"
 
 export class TuiController {
   readonly out: TuiOutput
@@ -21,6 +25,10 @@ export class TuiController {
   session: Session
   readonly status: Accessor<StatusInfo>
   readonly setStatus: Setter<StatusInfo>
+  readonly panelTab: Accessor<PanelTab>
+  private setPanelTab: Setter<PanelTab>
+  readonly todosItems: Accessor<TodoItem[]>
+  readonly todosReviews: Accessor<ReviewFeedEntry[]>
   readonly busy: Accessor<boolean>
   private setBusy: Setter<boolean>
   private history: string[] = []
@@ -44,9 +52,26 @@ export class TuiController {
     const [status, setStatus] = createSignal<StatusInfo>(this.computeStatus())
     this.status = status
     this.setStatus = setStatus
+    const [panelTab, setPanelTab] = createSignal<PanelTab>("todos")
+    this.panelTab = panelTab
+    this.setPanelTab = setPanelTab
+    // TodoStore（core，纯 TS）桥接到 Solid signal 供右侧面板响应式渲染
+    const [todosItems, setTodosItems] = createSignal<TodoItem[]>(runtime.todos.items())
+    const [todosReviews, setTodosReviews] = createSignal<ReviewFeedEntry[]>(runtime.todos.reviews())
+    runtime.todos.subscribe(() => {
+      setTodosItems(runtime.todos.items())
+      setTodosReviews(runtime.todos.reviews())
+    })
+    this.todosItems = todosItems
+    this.todosReviews = todosReviews
     const [busy, setBusy] = createSignal(false)
     this.busy = busy
     this.setBusy = setBusy
+  }
+
+  /** 右侧面板选项卡切换（Ctrl-T） */
+  cyclePanelTab(): void {
+    this.setPanelTab((t) => (t === "todos" ? "review" : "todos"))
   }
 
   exit(): void {
@@ -108,6 +133,8 @@ export class TuiController {
       this.refreshStatus()
       return
     }
+    // 用户每条信息先转为待办（当前进行中），回合结束后标记完成
+    const todo = this.runtime.todos.addTask(text)
     const { runtime, session } = this
     const agent = resolveAgent(session.agent, runtime.config)
     const model = session.model ?? agent.model ?? runtime.config.model
@@ -127,11 +154,13 @@ export class TuiController {
         model,
         sessionManager: runtime.sessions,
         lspManager: runtime.lsp,
+        todos: runtime.todos,
         sink: createTuiSink(this.out),
         askPermission: (req) => this.askPermission(req),
         askUser: (q) => this.askUser(q),
         abort: this.abortCtrl.signal,
       })
+      this.runtime.todos.patchStatus(todo.id, "done")
     } catch (err) {
       if (this.abortCtrl.signal.aborted) {
         this.out.push({ type: "system", text: "已中断" })
@@ -148,7 +177,7 @@ export class TuiController {
   askPermission(req: PermissionRequest): Promise<PermissionAnswer | undefined> {
     if (this.pendingPermission) return Promise.resolve(undefined)
     const subject = toolSubject(req.tool, req.args)
-    this.out.push({ type: "system", text: `⚠ 请求权限: ${req.tool}${subject ? ` ${subject}` : ""}（输入 y=允许 n=拒绝 a=会话 s=总是）` })
+    this.out.push({ type: "system", text: `[权限] 请求权限: ${req.tool}${subject ? ` ${subject}` : ""}（输入 y=允许 n=拒绝 a=会话 s=总是）` })
     return new Promise<PermissionAnswer | undefined>((resolve) => {
       this.pendingPermission = { req, resolve }
     })
@@ -156,10 +185,26 @@ export class TuiController {
 
   askUser(question: string): Promise<string | undefined> {
     if (this.pendingAsk) return Promise.resolve(undefined)
-    this.out.push({ type: "system", text: `❓ ${question}（输入回答后 Enter）` })
+    this.out.push({ type: "system", text: `[提问] ${question}（输入回答后 Enter）` })
     return new Promise<string | undefined>((resolve) => {
       this.pendingAsk = { question, resolve }
     })
+  }
+
+  /** 运行审查流水线：报告进入审查面板，发现问题则把修正任务插入到当前待办之后 */
+  async runReview(todo: string): Promise<string> {
+    const model = this.session.model ?? this.runtime.config.model
+    if (!model) return "未配置模型。"
+    this.out.push({ type: "system", text: "运行玄鉴审查流水线..." })
+    const output = await runReview({ todo, cwd: this.session.cwd, config: this.runtime.config, model, noAutoCommit: false })
+    const report = output.report || "无变更或无匹配审查员。"
+    this.runtime.todos.addReview("review", report)
+    const fixes = fixTasksFromReview(output.results)
+    if (fixes.length > 0) {
+      const n = this.runtime.todos.insertFixTasks(fixes)
+      this.out.push({ type: "system", text: `审查发现 ${fixes.length} 个问题，已插入 ${n} 个修正任务到当前待办之后。` })
+    }
+    return report
   }
 
   needsOnboarding(): boolean {

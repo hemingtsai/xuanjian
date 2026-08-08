@@ -7,6 +7,7 @@ import { createDefaultRegistry } from "../tools/index"
 import type { ToolRegistry } from "../tools/registry"
 import { LSPManager } from "../lsp/manager"
 import { GoalStore } from "../goal/goal"
+import { TodoStore } from "./todo-store"
 import { setLuaContext, applyBufferedToConfig } from "../lua/api"
 import { loadPlugins } from "../lua/loader"
 
@@ -18,6 +19,7 @@ export interface Runtime {
   registry: ToolRegistry
   lsp: LSPManager
   goals: GoalStore
+  todos: TodoStore
 }
 
 export async function createRuntime(opts?: {
@@ -34,7 +36,8 @@ export async function createRuntime(opts?: {
   const registry = createDefaultRegistry()
   const lsp = new LSPManager(config, cwd)
   const goals = new GoalStore(store)
-  const runtime: Runtime = { config, store, sessions, permission, registry, lsp, goals }
+  const todos = new TodoStore()
+  const runtime: Runtime = { config, store, sessions, permission, registry, lsp, goals, todos }
 
   setLuaContext({
     config,

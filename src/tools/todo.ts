@@ -1,13 +1,7 @@
 import { z } from "zod"
 import type { ToolContext, ToolDef, ExecuteResult } from "./registry"
 import { parseArgs, zodToJsonSchema } from "./schema"
-
-export interface TodoItem {
-  id: string
-  task: string
-  status: "todo" | "in_progress" | "done"
-  milestone?: string
-}
+import { TodoStore, type TodoItem } from "../core/todo-store"
 
 export const DEFAULT_TODOS: TodoItem[] = []
 
@@ -28,9 +22,10 @@ export const TodoWriteTool: ToolDef = {
   parameters: zodToJsonSchema(TodoWriteArgs),
   async call(ctx: ToolContext, rawArgs) {
     const args = parseArgs(TodoWriteArgs, rawArgs)
-    ctx.extra ??= {}
-    ctx.extra.todos = args.todos
-    const summary = args.todos.map((t) => `[${t.status}] ${t.task}`).join("\n")
+    const todos: TodoItem[] = args.todos
+    const store = ctx.extra?.todos
+    if (store instanceof TodoStore) store.setItems(todos)
+    const summary = todos.map((t) => `[${t.status}] ${t.task}`).join("\n")
     return { title: "更新任务清单", output: summary || "（空清单）" }
   },
 }

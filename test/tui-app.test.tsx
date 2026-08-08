@@ -24,7 +24,7 @@ test("TUI App 初始渲染：banner + 状态栏 + 输入框", async () => {
   controller.out.push({ type: "system", text: "banner" })
 
   const { renderer, renderOnce, captureCharFrame } = await testRender(() => <App controller={controller} />, {
-    width: 60,
+    width: 100,
     height: 12,
   })
   await renderOnce()
@@ -84,6 +84,26 @@ test("TuiController 未配置模型 → 错误提示", async () => {
   runtime.store.close()
 })
 
+test("TuiController 用户信息自动创建待办（当前进行中）", async () => {
+  const runtime = await createRuntime({ config })
+  const session = runtime.sessions.create({ cwd: "/tmp" })
+  const controller = new TuiController(runtime, session)
+
+  await controller.submit("你好")
+  const todos = controller.runtime.todos.items()
+  expect(todos.length).toBe(1)
+  expect(todos[0]?.task).toBe("你好")
+  expect(todos[0]?.status).toBe("in_progress")
+
+  await controller.submit("继续做下一个任务")
+  const todos2 = controller.runtime.todos.items()
+  expect(todos2.length).toBe(2)
+  expect(todos2[0]?.status).toBe("todo")
+  expect(todos2[1]?.status).toBe("in_progress")
+
+  runtime.store.close()
+})
+
 test("TuiController 历史记录", async () => {
   const runtime = await createRuntime({ config })
   const session = runtime.sessions.create({ cwd: "/tmp" })
@@ -105,7 +125,7 @@ test("TUI onboarding: 无 model 且无凭据时显示引导栏", async () => {
   expect(controller.needsOnboarding()).toBe(true)
 
   const { renderer, renderOnce, captureCharFrame } = await testRender(() => <App controller={controller} />, {
-    width: 60,
+    width: 100,
     height: 12,
   })
   await renderOnce()
@@ -185,7 +205,7 @@ test("粘贴到输入框 + 复制最后回复", async () => {
   const session = runtime.sessions.create({ cwd: "/tmp" })
   const controller = new TuiController(runtime, session)
 
-  const { renderer, renderOnce, mockInput, captureCharFrame } = await testRender(() => <App controller={controller} />, { width: 60, height: 12 })
+  const { renderer, renderOnce, mockInput, captureCharFrame } = await testRender(() => <App controller={controller} />, { width: 100, height: 12 })
   await renderOnce()
 
   // 自定义输入框渲染 placeholder 与光标块
@@ -203,5 +223,57 @@ test("粘贴到输入框 + 复制最后回复", async () => {
   expect(copied).toBe("这是回复内容")
   expect(result).toContain("已复制")
 
+  runtime.store.close()
+})
+
+test("右侧面板：待办清单 + 底部选项卡默认显示", async () => {
+  const runtime = await createRuntime({ config })
+  const session = runtime.sessions.create({ cwd: "/tmp" })
+  const controller = new TuiController(runtime, session)
+  controller.runtime.todos.setItems([
+    { id: "a", task: "任务 A", status: "in_progress" },
+    { id: "b", task: "任务 B", status: "todo" },
+  ])
+
+  const { renderer, renderOnce, captureCharFrame } = await testRender(() => <App controller={controller} />, { width: 100, height: 14 })
+  await renderOnce()
+
+  const frame = captureCharFrame()
+  expect(frame).toContain("待办清单")
+  expect(frame).toContain("任务 A")
+  expect(frame).toContain("任务 B")
+  expect(frame).toContain("待办")
+  expect(frame).toContain("审查")
+
+  runtime.store.close()
+})
+
+test("右侧面板：审查输出 Tab 显示最新审查报告", async () => {
+  const runtime = await createRuntime({ config })
+  const session = runtime.sessions.create({ cwd: "/tmp" })
+  const controller = new TuiController(runtime, session)
+  controller.runtime.todos.addReview("review", "## 审查报告\n发现 2 个问题")
+  controller.cyclePanelTab()
+  expect(controller.panelTab()).toBe("review")
+
+  const { renderer, renderOnce, captureCharFrame } = await testRender(() => <App controller={controller} />, { width: 100, height: 14 })
+  await renderOnce()
+
+  const frame = captureCharFrame()
+  expect(frame).toContain("审查输出")
+  expect(frame).toContain("审查报告")
+
+  runtime.store.close()
+})
+
+test("TuiController.cyclePanelTab 切换面板选项卡", async () => {
+  const runtime = await createRuntime({ config })
+  const session = runtime.sessions.create({ cwd: "/tmp" })
+  const controller = new TuiController(runtime, session)
+  expect(controller.panelTab()).toBe("todos")
+  controller.cyclePanelTab()
+  expect(controller.panelTab()).toBe("review")
+  controller.cyclePanelTab()
+  expect(controller.panelTab()).toBe("todos")
   runtime.store.close()
 })

@@ -6,11 +6,13 @@ import { runAgentTurn } from "../core/agent-loop"
 import type { LoopSink } from "../core/agent-loop"
 import type { PermissionAnswer } from "../core/agent-loop"
 import { generateText } from "../llm/client"
-import { runReview } from "../review/pipeline"
+import { runReview, fixTasksFromReview } from "../review/pipeline"
 import { planGoal, materializePlan } from "./planner"
 import { runVerification } from "./verify"
 import { formatGoalReport } from "./report"
 import type { Goal, GoalTask } from "./goal"
+import type { TodoItem } from "../core/todo-store"
+import { newUUID } from "../core/session"
 
 export interface GoalLoopOptions {
   runtime: Runtime
@@ -25,6 +27,29 @@ export interface GoalLoopOptions {
 function readyTasks(goal: Goal): GoalTask[] {
   const done = new Set(goal.tasks.filter((t) => t.status === "done").map((t) => t.id))
   return goal.tasks.filter((t) => t.status === "todo" && t.deps.every((d) => done.has(d)))
+}
+
+function taskToTodo(t: GoalTask): TodoItem {
+  const status: TodoItem["status"] = t.status === "in_progress" ? "in_progress" : t.status === "done" ? "done" : "todo"
+  return { id: t.id, task: t.title, status, milestone: t.milestone ? "milestone" : undefined }
+}
+
+/** 审查发现问题时，将修正任务作为 GoalTask 插入到当前任务之后（deps 指向当前任务，待其完成后可执行） */
+function insertFixTasksIntoGoal(goal: Goal, afterTaskId: string, fixes: { task: string }[]): void {
+  if (fixes.length === 0) return
+  const at = goal.tasks.findIndex((t) => t.id === afterTaskId) + 1
+  const maxAttempts = goal.tasks[0]?.max_attempts ?? 3
+  const inserted: GoalTask[] = fixes.map((f) => ({
+    id: newUUID(),
+    title: f.task,
+    goal_id: goal.id,
+    status: "todo",
+    deps: [afterTaskId],
+    attempts: 0,
+    max_attempts: maxAttempts,
+    milestone: false,
+  }))
+  goal.tasks.splice(at, 0, ...inserted)
 }
 
 export { formatGoalReport } from "./report"
@@ -48,6 +73,7 @@ export async function executeGoal(opts: GoalLoopOptions): Promise<Goal> {
     goal.tasks = materializePlan(goal, planned, runtime.config.goal.max_attempts ?? 3)
     goal.status = "active"
     runtime.goals.save(goal)
+    runtime.todos.setItems(goal.tasks.map(taskToTodo))
     await Events.emit("goal.started", { goal: goal })
   }
 
@@ -74,7 +100,8 @@ export async function executeGoal(opts: GoalLoopOptions): Promise<Goal> {
 
     task.status = "in_progress"
     runtime.goals.save(goal)
-    sink.text?.(`\n🔨 任务: ${task.title}\n`)
+    runtime.todos.setCurrent(task.id)
+    sink.text?.(`\n任务: ${task.title}\n`)
 
     if (task.checkpoint === "write") {
       const proceed = opts.onCheckpoint ? await opts.onCheckpoint(task) : true
@@ -100,6 +127,7 @@ export async function executeGoal(opts: GoalLoopOptions): Promise<Goal> {
         model,
         sessionManager: runtime.sessions,
         lspManager: runtime.lsp,
+        todos: runtime.todos,
         sink: { done: () => {} },
         askPermission: opts.askPermission,
         askUser: undefined,
@@ -118,6 +146,7 @@ export async function executeGoal(opts: GoalLoopOptions): Promise<Goal> {
       task.status = "blocked"
       goal.status = "paused"
       runtime.goals.save(goal)
+      runtime.todos.patchStatus(task.id, "todo")
       await Events.emit("goal.blocked", { goal_id: goal.id, task, reason: "验证未通过，重试耗尽" })
       break
     }
@@ -133,16 +162,22 @@ export async function executeGoal(opts: GoalLoopOptions): Promise<Goal> {
       })
       task.result = { ...(task.result ?? {}), review: review.report }
       await Events.emit("goal.milestone.review", { goal_id: goal.id, task, review: review.report })
-      const hasCritical = review.results.some((r) => r.issues.some((i) => i.severity === "critical"))
-      if (hasCritical && task.attempts < task.max_attempts) {
-        task.status = "todo"
+      runtime.todos.addReview("milestone", review.report)
+      // 审查发现问题：将修正任务插入到当前任务之后，先执行修正再继续
+      const fixes = fixTasksFromReview(review.results)
+      if (fixes.length > 0) {
+        insertFixTasksIntoGoal(goal, task.id, fixes)
+        task.status = "done"
         runtime.goals.save(goal)
+        runtime.todos.setItems(goal.tasks.map(taskToTodo))
+        await Events.emit("goal.task.done", { goal_id: goal.id, task })
         continue
       }
     }
 
     task.status = "done"
     runtime.goals.save(goal)
+    runtime.todos.patchStatus(task.id, "done")
     await Events.emit("goal.task.done", { goal_id: goal.id, task })
   }
 

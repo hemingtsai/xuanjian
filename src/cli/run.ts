@@ -73,6 +73,7 @@ export async function runTask(message: string, options: Options, goal: string | 
       model,
       sessionManager: runtime.sessions,
       lspManager: runtime.lsp,
+      todos: runtime.todos,
       sink: renderer,
       askPermission: nonInteractive
         ? async (req: PermissionRequest) => {

@@ -8,7 +8,6 @@ import { createRuntime } from "../core/runtime"
 import { resolveAgent } from "../core/agent"
 import { registerSlash } from "../core/slash"
 import { executeGoal, formatGoalReport } from "../goal/loop"
-import { runReview } from "../review/pipeline"
 import { flushOverrides } from "../config/overrides"
 import { App } from "./App"
 import { TuiController } from "./controller"
@@ -152,11 +151,7 @@ function registerTuiSlash(controller: TuiController): void {
   })
 
   registerSlash("review", async (args) => {
-    const model = session.model ?? runtime.config.model
-    if (!model) return "未配置模型。"
-    out.push({ type: "system", text: "运行玄鉴审查流水线..." })
-    const output = await runReview({ todo: args, cwd: session.cwd, config: runtime.config, model, noAutoCommit: false })
-    return output.report || "无变更或无匹配审查员。"
+    return await controller.runReview(args)
   })
 
   registerSlash("compact", () => {

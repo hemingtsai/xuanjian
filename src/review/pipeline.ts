@@ -23,6 +23,22 @@ export interface ReviewOutput {
   pushed: boolean
 }
 
+/** 从审查结果中提取修正任务（跳过 info 级别），用于插入到当前待办之后 */
+export function fixTasksFromReview(results: ReviewResult[]): { task: string; milestone?: string }[] {
+  const tasks: { task: string; milestone?: string }[] = []
+  for (const result of results) {
+    for (const issue of result.issues) {
+      if (issue.severity === "info") continue
+      const loc = issue.file
+        ? `${issue.file}${issue.line !== undefined ? `:${issue.line}` : ""}`
+        : result.reviewer
+      const suggestion = issue.suggestion ? `（建议: ${issue.suggestion}）` : ""
+      tasks.push({ task: `修复 ${loc}: ${issue.description}${suggestion}` })
+    }
+  }
+  return tasks
+}
+
 export async function runReview(input: ReviewInput): Promise<ReviewOutput> {
   const diff = await collectDiff(input.cwd)
   const files = diff.files
