@@ -1,6 +1,6 @@
 import { For, createEffect, createSignal } from "solid-js"
 import type { JSX } from "@opentui/solid"
-import { useKeyboard, usePaste, useRenderer, useTerminalDimensions } from "@opentui/solid"
+import { useKeyboard, useRenderer } from "@opentui/solid"
 import type { TuiController } from "./controller"
 import type { OutputPart } from "./parts"
 import type { StatusInfo } from "./status"
@@ -18,53 +18,7 @@ export function App(props: { controller: TuiController }): JSX.Element {
     controller.out.push({ type: "system", text: controller.copy(text) })
   }
 
-  usePaste((e) => {
-    if (controller.modal()?.kind !== "ask") return
-    const text = new TextDecoder().decode(e.bytes).replace(/\r?\n/g, " ").replace(/[\x00-\x1f]/g, "")
-    if (text) controller.setModalValue((v) => v + text)
-  })
-
   useKeyboard((e) => {
-    // ask 弹窗：文本输入由全局 handler 接管（原生 input 在弹窗中不可靠）
-    const modalState = controller.modal()
-    if (modalState?.kind === "permission") {
-      if (e.ctrl && e.name === "c") {
-        controller.cancelModal()
-        e.preventDefault()
-        return
-      }
-      if (!e.ctrl && !e.meta && e.sequence && e.sequence.length === 1) {
-        const a = e.sequence.toLowerCase()
-        modalState.resolve(a === "y" ? "allow" : a === "n" ? "deny" : a === "a" ? "session" : a === "s" ? "always" : "deny")
-        e.preventDefault()
-        return
-      }
-      return
-    }
-    if (modalState?.kind === "ask") {
-      if (e.ctrl && e.name === "c") {
-        controller.cancelModal()
-        e.preventDefault()
-        return
-      }
-      if (e.name === "return") {
-        const v = controller.modalValue()
-        controller.resolveModal(v)
-        e.preventDefault()
-        return
-      }
-      if (e.name === "backspace") {
-        controller.setModalValue((v) => v.slice(0, -1))
-        e.preventDefault()
-        return
-      }
-      if (!e.ctrl && !e.meta && !e.super && !e.hyper && e.sequence && e.sequence.length === 1 && e.sequence.charCodeAt(0) >= 32) {
-        controller.setModalValue((v) => v + e.sequence)
-        e.preventDefault()
-        return
-      }
-      return
-    }
     if (e.ctrl && e.shift && e.name === "c") {
       copySelection()
       e.preventDefault()
@@ -78,7 +32,6 @@ export function App(props: { controller: TuiController }): JSX.Element {
     if (e.ctrl && e.name === "c") {
       e.preventDefault()
       if (controller.busy()) controller.interrupt()
-      else if (controller.modal()) controller.cancelModal()
       else controller.exit()
       return
     }
@@ -88,7 +41,7 @@ export function App(props: { controller: TuiController }): JSX.Element {
       return
     }
     if (e.ctrl && e.name === "o") {
-      if (!controller.modal()) void controller.openAuthWizard()
+      void controller.openAuthWizard()
       e.preventDefault()
       return
     }
@@ -101,10 +54,6 @@ export function App(props: { controller: TuiController }): JSX.Element {
       scrollRef.scrollTop += 5
       e.preventDefault()
       return
-    }
-    if (e.name === "escape" && controller.modal()) {
-      controller.cancelModal()
-      e.preventDefault()
     }
   })
 
@@ -125,26 +74,18 @@ export function App(props: { controller: TuiController }): JSX.Element {
 
   return (
     <box flexDirection="column" flexGrow={1} flexShrink={1} width="100%" height="100%">
-      {controller.modal() ? null : (
-        <scrollbox
-          ref={(el) => {
-            scrollRef = el as unknown as { scrollTop: number }
-          }}
-          flexGrow={1}
-          flexShrink={1}
-          paddingX={1}
-        >
-          <For each={controller.out.parts()}>
-            {(part) => <PartView part={part} />}
-          </For>
-        </scrollbox>
-      )}
-
-      {controller.modal() ? (
-        <box flexGrow={1} flexShrink={1} width="100%" flexDirection="column" alignItems="center" justifyContent="center" backgroundColor="#0a0e14">
-          <ModalView controller={controller} modal={controller.modal()!} />
-        </box>
-      ) : null}
+      <scrollbox
+        ref={(el) => {
+          scrollRef = el as unknown as { scrollTop: number }
+        }}
+        flexGrow={1}
+        flexShrink={1}
+        paddingX={1}
+      >
+        <For each={controller.out.parts()}>
+          {(part) => <PartView part={part} />}
+        </For>
+      </scrollbox>
 
       {controller.needsOnboarding() ? (
         <box flexShrink={0} paddingX={1} backgroundColor="#3b2f2f">
@@ -154,7 +95,7 @@ export function App(props: { controller: TuiController }): JSX.Element {
 
       <box flexShrink={0} paddingX={1}>
         <input
-          focused={!controller.modal()}
+          focused
           value={input()}
           onChange={(v) => setInput(v)}
           onSubmit={(v) => submit(typeof v === "string" ? v : "")}
@@ -255,44 +196,6 @@ export function PartView(props: { part: OutputPart }): JSX.Element {
         </box>
       )
   }
-}
-
-function ModalView(props: { controller: TuiController; modal: { kind: string } & Record<string, unknown> }): JSX.Element {
-  const modal = props.modal
-  const dims = useTerminalDimensions()
-  const width = Math.min(dims().width - 4, 60)
-
-  if (modal.kind === "select") {
-    const options = (modal.options as { name: string; description: string; value: string }[]) ?? []
-    const selectHeight = Math.min(Math.max(options.length, 3) * 2, 10)
-    const boxHeight = selectHeight + 3
-    return (
-      <box flexShrink={0} width={width} height={boxHeight} backgroundColor="#1e293b" borderStyle="rounded" borderColor="#475569" flexDirection="column" paddingX={1}>
-        <text fg="#fde047">◈ {String(modal.title)}（↑↓ 选择 · Enter 确认 · Esc/Ctrl-C 取消）</text>
-        <select
-          flexGrow={1}
-          width="100%"
-          height={selectHeight}
-          focused
-          options={options}
-          showDescription
-          showSelectionIndicator
-          onSelect={(_, opt) => props.controller.resolveModal(opt?.value)}
-        />
-      </box>
-    )
-  }
-  const isPermission = modal.kind === "permission"
-  const v = props.controller.modalValue()
-
-  return (
-    <box flexShrink={0} width={width} height={4} flexDirection="column" paddingX={1} backgroundColor="#1e293b" borderStyle="rounded" borderColor="#475569">
-      <text fg="#fde047">⚠ {String(modal.text)}</text>
-      <box flexDirection="row">
-        <For each={v.split("")}>{(c: any) => <text fg="#e2e8f0">{c()}</text>}</For>
-      </box>
-    </box>
-  )
 }
 
 export function StatusBar(props: { status: StatusInfo }): JSX.Element {

@@ -15,21 +15,12 @@ import { hasApiKey } from "../config/credentials"
 import { setOverride } from "../config/overrides"
 import { LSPManager } from "../lsp/manager"
 
-export type TuiModal =
-  | { kind: "permission"; text: string; resolve: (v: PermissionAnswer) => void }
-  | { kind: "ask"; text: string; resolve: (v: string | undefined) => void }
-  | { kind: "select"; title: string; options: { name: string; description: string; value: string }[]; resolve: (v: string | undefined) => void }
-
 export class TuiController {
   readonly out: TuiOutput
   readonly runtime: Runtime
   session: Session
   readonly status: Accessor<StatusInfo>
   readonly setStatus: Setter<StatusInfo>
-  readonly modal: Accessor<TuiModal | null>
-  readonly setModal: Setter<TuiModal | null>
-  readonly modalValue: Accessor<string>
-  readonly setModalValue: Setter<string>
   readonly busy: Accessor<boolean>
   private setBusy: Setter<boolean>
   private history: string[] = []
@@ -38,6 +29,8 @@ export class TuiController {
   authStep: "none" | "select" | "key" = "none"
   private authTargets: import("../cli/auth").LoginTarget[] = []
   private authTarget: import("../cli/auth").LoginTarget | null = null
+  private pendingPermission: { req: PermissionRequest; resolve: (v: PermissionAnswer | undefined) => void } | null = null
+  private pendingAsk: { question: string; resolve: (v: string | undefined) => void } | null = null
   onExit: (() => void) | null = null
   clipboard: ((text: string) => boolean) | null = null
 
@@ -51,21 +44,9 @@ export class TuiController {
     const [status, setStatus] = createSignal<StatusInfo>(this.computeStatus())
     this.status = status
     this.setStatus = setStatus
-    const [modal, setModal] = createSignal<TuiModal | null>(null)
-    this.modal = modal
-    this.setModal = setModal
-    const [modalValue, setModalValue] = createSignal("")
-    this.modalValue = modalValue
-    this.setModalValue = setModalValue
     const [busy, setBusy] = createSignal(false)
     this.busy = busy
     this.setBusy = setBusy
-  }
-
-  /** 设置 modal 并清空其文本输入值 */
-  showModal(m: TuiModal | null): void {
-    this.setModalValue("")
-    this.setModal(m)
   }
 
   exit(): void {
@@ -93,6 +74,26 @@ export class TuiController {
   async submit(raw: string): Promise<void> {
     const text = raw.trim()
     if (!text || this.busy()) return
+
+    // 权限应答
+    if (this.pendingPermission) {
+      const p = this.pendingPermission
+      this.pendingPermission = null
+      const a = text.toLowerCase()
+      const label = a === "y" ? "已允许" : a === "n" ? "已拒绝" : a === "a" ? "本次会话允许" : a === "s" ? "总是允许" : "已拒绝"
+      p.resolve(a === "y" ? "allow" : a === "n" ? "deny" : a === "a" ? "session" : a === "s" ? "always" : "deny")
+      this.out.push({ type: "system", text: `→ ${label}` })
+      return
+    }
+
+    // 提问应答
+    if (this.pendingAsk) {
+      const p = this.pendingAsk
+      this.pendingAsk = null
+      p.resolve(text || undefined)
+      this.out.push({ type: "system", text: `→ ${text}` })
+      return
+    }
 
     // auth 向导：输入走向导而非聊天
     if (this.authStep !== "none") {
@@ -145,24 +146,19 @@ export class TuiController {
   }
 
   askPermission(req: PermissionRequest): Promise<PermissionAnswer | undefined> {
-    if (this.modal()) return Promise.resolve(undefined)
+    if (this.pendingPermission) return Promise.resolve(undefined)
     const subject = toolSubject(req.tool, req.args)
-    return new Promise<PermissionAnswer>((resolve) => {
-      this.setModal({ kind: "permission", text: `请求权限: ${req.tool}${subject ? ` ${subject}` : ""}`, resolve })
+    this.out.push({ type: "system", text: `⚠ 请求权限: ${req.tool}${subject ? ` ${subject}` : ""}（输入 y=允许 n=拒绝 a=会话 s=总是）` })
+    return new Promise<PermissionAnswer | undefined>((resolve) => {
+      this.pendingPermission = { req, resolve }
     })
   }
 
   askUser(question: string): Promise<string | undefined> {
-    if (this.modal()) return Promise.resolve(undefined)
+    if (this.pendingAsk) return Promise.resolve(undefined)
+    this.out.push({ type: "system", text: `❓ ${question}（输入回答后 Enter）` })
     return new Promise<string | undefined>((resolve) => {
-      this.showModal({ kind: "ask", text: question, resolve })
-    })
-  }
-
-  selectFromList(title: string, options: { name: string; description: string; value: string }[]): Promise<string | undefined> {
-    if (this.modal()) return Promise.resolve(undefined)
-    return new Promise<string | undefined>((resolve) => {
-      this.showModal({ kind: "select", title, options, resolve })
+      this.pendingAsk = { question, resolve }
     })
   }
 
@@ -209,10 +205,7 @@ export class TuiController {
       } else {
         const { setCredential } = await import("../config/credentials")
         setCredential(this.authTarget.id, { apiKey })
-        const connectedText = `✓ 已连接 ${this.authTarget.id}（key: ${maskKey(apiKey)}）`
-        this.out.push({ type: "system", text: connectedText })
-        // @opentui/solid 的 parts 渲染不可靠，stderr 兜底确保反馈可见
-        process.stderr.write(`\n${connectedText}\n`)
+        this.out.push({ type: "system", text: `✓ 已连接 ${this.authTarget.id}（key: ${maskKey(apiKey)}）` })
         if (!this.runtime.config.model && this.authTarget.defaultModel) {
           const { setOverride } = await import("../config/overrides")
           await setOverride("model", this.authTarget.defaultModel)
@@ -226,23 +219,6 @@ export class TuiController {
       return true
     }
     return false
-  }  resolveModal(value: unknown): void {
-    const m = this.modal()
-    if (!m) return
-    this.setModal(null)
-    if (m.kind === "permission") {
-      m.resolve(value as PermissionAnswer)
-    } else {
-      m.resolve(value === "" ? undefined : String(value))
-    }
-  }
-
-  cancelModal(): void {
-    const m = this.modal()
-    if (!m) return
-    this.setModal(null)
-    if (m.kind === "permission") m.resolve("deny")
-    else m.resolve(undefined)
   }
 
   private async handleSlash(text: string): Promise<void> {

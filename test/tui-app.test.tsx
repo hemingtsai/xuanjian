@@ -41,23 +41,20 @@ test("TUI App 初始渲染：banner + 状态栏 + 输入框", async () => {
   runtime.store.close()
 })
 
-test("TUI App 初始渲染：权限 modal 可见（预置状态）", async () => {
+test("TuiController 权限请求 → parts 提示 → 输入应答", async () => {
   const runtime = await createRuntime({ config })
   const session = runtime.sessions.create({ cwd: "/tmp" })
   const controller = new TuiController(runtime, session)
-  controller.setModal({ kind: "permission", text: "请求权限: bash git status", resolve: () => {} })
 
-  const { renderer, renderOnce, captureCharFrame } = await testRender(() => <App controller={controller} />, {
-    width: 60,
-    height: 12,
-  })
-  await renderOnce()
+  const promise = controller.askPermission({ tool: "bash", args: { command: "git status" } })
+  const prompt = controller.out.parts().map((p) => ("text" in p ? p.text : "")).join(" ")
+  expect(prompt).toContain("请求权限: bash git status")
 
-  const frame = captureCharFrame()
-  expect(frame).toContain("请求权限: bash git status")
-
-  controller.resolveModal("allow")
-  expect(controller.modal()).toBeNull()
+  await controller.submit("y")
+  const answer = await promise
+  expect(answer).toBe("allow")
+  const tail = controller.out.parts().map((p) => ("text" in p ? p.text : "")).join(" ")
+  expect(tail).toContain("已允许")
 
   runtime.store.close()
 })
@@ -119,21 +116,20 @@ test("TUI onboarding: 无 model 且无凭据时显示引导栏", async () => {
   runtime.store.close()
 })
 
-test("TuiController select 模态", async () => {
+test("TuiController 提问 → parts 提示 → 输入应答", async () => {
   const runtime = await createRuntime({ config })
   const session = runtime.sessions.create({ cwd: "/tmp" })
   const controller = new TuiController(runtime, session)
 
-  const promise = controller.selectFromList("选 provider", [
-    { name: "anthropic", description: "Claude 系列", value: "anthropic" },
-    { name: "openai", description: "GPT 系列", value: "openai" },
-  ])
-  const modal = controller.modal()
-  expect(modal?.kind).toBe("select")
-  controller.resolveModal("anthropic")
-  const selected = await promise
-  expect(selected).toBe("anthropic")
-  expect(controller.modal()).toBeNull()
+  const promise = controller.askUser("这是一个问题")
+  const prompt = controller.out.parts().map((p) => ("text" in p ? p.text : "")).join(" ")
+  expect(prompt).toContain("这是一个问题")
+
+  await controller.submit("我的回答")
+  const answer = await promise
+  expect(answer).toBe("我的回答")
+  const tail = controller.out.parts().map((p) => ("text" in p ? p.text : "")).join(" ")
+  expect(tail).toContain("我的回答")
 
   runtime.store.close()
 })
